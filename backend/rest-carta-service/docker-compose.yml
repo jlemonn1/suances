@@ -1,0 +1,23 @@
+services:
+  carta-service:
+    build:
+      context: .
+      # Assuming a standard Dockerfile exists or will be created here
+      dockerfile: Dockerfile
+    container_name: suances-carta-service
+    ports:
+      - "8081:8081"
+    env_file:
+      - ../../.env.dev
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+    networks:
+      - suances-network
+
+networks:
+  suances-network:
+    external: true
+    # We reference the network created by docker-compose-infra.yml
+    name: suances_suances-network

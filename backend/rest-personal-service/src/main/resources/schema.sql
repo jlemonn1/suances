@@ -1,0 +1,41 @@
+-- =============================================
+-- Personnel Service - Schema de referencia
+-- Hibernate crea las tablas automáticamente
+-- Este archivo es solo para referencia/seed
+-- =============================================
+
+-- Tabla: usuarios
+-- CREATE TABLE usuarios (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     username VARCHAR(50) NOT NULL UNIQUE,
+--     password VARCHAR(255) NOT NULL,
+--     full_name VARCHAR(100) NOT NULL,
+--     image_url VARCHAR(500),
+--     role VARCHAR(20) NOT NULL,
+--     activo BOOLEAN DEFAULT TRUE,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- Tabla: auditoria_accesos
+-- CREATE TABLE auditoria_accesos (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     usuario_id UUID,
+--     username_attempt VARCHAR(50),
+--     status VARCHAR(20),
+--     ip_address VARCHAR(45),
+--     user_agent TEXT,
+--     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- Seed Inicial (Password: admin123 con BCrypt 12 rounds)
+-- Ejecutar manualmente tras crear la BD:
+-- INSERT INTO usuarios (id, username, password, full_name, role, activo)
+-- VALUES (
+--     gen_random_uuid(),
+--     'admin',
+--     '$2a$12$LJ3m4ys3uz0b6Tf0VHOhh.RA0FPvrYpBgkMD2kIHPVmqicLOdHNMK',
+--     'Admin Inicial',
+--     'PROPIETARIO',
+--     true
+-- );

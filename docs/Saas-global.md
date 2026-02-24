@@ -232,13 +232,3 @@ Sistema consistente sin llamadas síncronas en cadena.
 * Coste real calculado dinámicamente.
 * Operación robusta incluso con reintentos.
 * Arquitectura lista para escalar a multi-local en futuro.
-
----
-
-Si quieres, ahora puedo:
-
-* Hacer un diagrama conceptual de arquitectura
-* O definir la visión a 2 años (cómo evolucionaría a SaaS multi-restaurante)
-* O detectar los puntos más críticos que pueden romper el sistema
-
-Tú dime hacia dónde quieres llevarlo ahora.

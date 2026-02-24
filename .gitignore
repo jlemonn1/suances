@@ -1,0 +1,25 @@
+# Environments
+.env
+.env.dev
+.env.prod
+.env.*.local
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# Build
+target/
+build/
+bin/
+*.class
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

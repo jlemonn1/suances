@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: suances-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      # We will create specific databases via init script
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - suances-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: suances-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - suances-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  suances-network:
+    driver: bridge

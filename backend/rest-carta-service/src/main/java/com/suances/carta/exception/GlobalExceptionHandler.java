@@ -2,7 +2,6 @@ package com.suances.carta.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,13 +34,13 @@ public class GlobalExceptionHandler {
                     return detail;
                 })
                 .collect(Collectors.toList());
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("error", "VALIDATION_ERROR");
         response.put("message", "Error de validación");
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("details", details);
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 

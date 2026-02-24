@@ -13,7 +13,6 @@ import com.suances.carta.repository.PlatoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.UUID;
 
 @Service
@@ -24,8 +23,8 @@ public class EscandalloService {
     private final IngredienteRepository ingredienteRepository;
 
     public EscandalloService(EscandalloRepository escandalloRepository,
-                            PlatoRepository platoRepository,
-                            IngredienteRepository ingredienteRepository) {
+            PlatoRepository platoRepository,
+            IngredienteRepository ingredienteRepository) {
         this.escandalloRepository = escandalloRepository;
         this.platoRepository = platoRepository;
         this.ingredienteRepository = ingredienteRepository;
@@ -51,7 +50,8 @@ public class EscandalloService {
 
         for (EscandalloRequest.IngredienteCantidad ic : request.getIngredientes()) {
             Ingrediente ingrediente = ingredienteRepository.findById(ic.getIngredienteId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado: " + ic.getIngredienteId()));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Ingrediente no encontrado: " + ic.getIngredienteId()));
 
             if (!ingrediente.getActivo()) {
                 throw new IllegalArgumentException("El ingrediente no está activo: " + ingrediente.getNombre());
