@@ -5,6 +5,7 @@ import com.suances.personnel.domain.model.Usuario;
 import com.suances.personnel.dto.request.LoginRequest;
 import com.suances.personnel.dto.response.LoginResponse;
 import com.suances.personnel.dto.response.UserInfoResponse;
+import com.suances.personnel.exception.InvalidCredentialsException;
 import com.suances.personnel.repository.AuditoriaAccesoRepository;
 import com.suances.personnel.repository.UsuarioRepository;
 import com.suances.personnel.security.JwtTokenProvider;
@@ -60,7 +61,7 @@ public class AuthService {
                                         ipAddress);
 
                         log.warn("Login fallido para username: {}", request.getUsername());
-                        throw new RuntimeException("Credenciales incorrectas");
+                        throw new InvalidCredentialsException("Credenciales incorrectas");
                 }
 
                 // Generar token

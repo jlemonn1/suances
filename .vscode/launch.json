@@ -9,6 +9,16 @@
             "projectName": "carta-service",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-PersonnelApplication<personnel-service>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.personnel.PersonnelApplication",
+            "projectName": "personnel-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
