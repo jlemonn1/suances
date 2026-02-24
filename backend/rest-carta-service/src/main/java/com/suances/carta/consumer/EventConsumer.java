@@ -13,6 +13,7 @@ import com.suances.carta.service.EventProducer;
 import com.suances.carta.service.IngredienteService;
 import com.suances.carta.service.PlatoService;
 import jakarta.annotation.PostConstruct;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,12 +54,12 @@ public class EventConsumer {
     private ExecutorService executor;
 
     public EventConsumer(StringRedisTemplate redisTemplate,
-                        ObjectMapper objectMapper,
-                        EventosProcesadosRepository eventosProcesadosRepository,
-                        PlatoService platoService,
-                        IngredienteService ingredienteService,
-                        EventProducer eventProducer,
-                        EscandalloRepository escandalloRepository) {
+            ObjectMapper objectMapper,
+            EventosProcesadosRepository eventosProcesadosRepository,
+            PlatoService platoService,
+            IngredienteService ingredienteService,
+            EventProducer eventProducer,
+            EscandalloRepository escandalloRepository) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.eventosProcesadosRepository = eventosProcesadosRepository;
@@ -72,7 +73,7 @@ public class EventConsumer {
     public void iniciarConsumidor() {
         log.info("Iniciando consumidor de eventos Redis...");
         inicializarConsumerGroup();
-        
+
         executor = Executors.newSingleThreadExecutor();
         executor.submit(this::consumirEventos);
     }
@@ -92,14 +93,13 @@ public class EventConsumer {
 
     private void consumirEventos() {
         log.info("Iniciando bucle de consumo de eventos...");
-        
+
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 List<MapRecord<String, Object, Object>> registros = redisTemplate.opsForStream().read(
                         Consumer.from(group, "carta-consumer"),
                         StreamReadOptions.empty().count(1).block(Duration.ofSeconds(5)),
-                        StreamOffset.create(streamEvents, ReadOffset.lastConsumed())
-                );
+                        StreamOffset.create(streamEvents, ReadOffset.lastConsumed()));
 
                 if (registros != null && !registros.isEmpty()) {
                     for (MapRecord<String, Object, Object> registro : registros) {
@@ -121,34 +121,34 @@ public class EventConsumer {
     private void procesarEvento(MapRecord<String, Object, Object> registro) {
         String eventId = registro.getId().toString();
         Map<Object, Object> datos = registro.getValue();
-        
+
         try {
             String json = (String) datos.get("data");
             SalaPedidoEvent evento = objectMapper.readValue(json, SalaPedidoEvent.class);
-            
-            log.info("Procesando evento: eventId={}, platoId={}, cantidad={}", 
+
+            log.info("Procesando evento: eventId={}, platoId={}, cantidad={}",
                     evento.getEventId(), evento.getPlatoId(), evento.getCantidad());
-            
+
             if (eventosProcesadosRepository.existsByEventId(evento.getEventId())) {
                 log.info("Evento ya procesado, ignorando: {}", evento.getEventId());
                 redisTemplate.opsForStream().acknowledge(streamEvents, group, eventId);
                 return;
             }
-            
+
             platoService.incrementarContador(evento.getPlatoId(), evento.getCantidad());
-            
+
             ingredienteService.descontarStock(evento.getPlatoId(), evento.getCantidad());
-            
+
             verificarYEmitirAlertasStock(evento.getPlatoId());
-            
+
             EventosProcesados eventosProcesados = new EventosProcesados();
             eventosProcesados.setEventId(evento.getEventId());
             eventosProcesadosRepository.save(eventosProcesados);
-            
+
             redisTemplate.opsForStream().acknowledge(streamEvents, group, eventId);
-            
+
             log.info("Evento procesado exitosamente: {}", evento.getEventId());
-            
+
         } catch (Exception e) {
             log.error("Error al procesar evento: {}", eventId, e);
         }
@@ -165,8 +165,7 @@ public class EventConsumer {
                                 ingrediente.getId(),
                                 ingrediente.getNombre(),
                                 ingrediente.getStockActual(),
-                                ingrediente.getUmbralAlerta()
-                        );
+                                ingrediente.getUmbralAlerta());
                         eventProducer.publicarStockBajo(evento);
                         log.info("Alerta de stock bajo emitida para ingrediente: {}", ingrediente.getNombre());
                     }

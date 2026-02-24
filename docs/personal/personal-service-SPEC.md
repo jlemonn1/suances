@@ -14,8 +14,8 @@
 
 ## 2. Stack Tecnológico
 
-- **Framework**: Spring Boot 3.2.x
-- **Lenguaje**: Java 17
+- **Framework**: Spring Boot 3.5.11
+- **Lenguaje**: Java 21
 - **Build**: Maven
 - **Arquitectura**: Hexagonal (Ports & Adapters)
 - **Seguridad**: Spring Security 6 + JJWT (Issuer)

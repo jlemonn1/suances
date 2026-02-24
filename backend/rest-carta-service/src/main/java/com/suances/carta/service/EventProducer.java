@@ -1,8 +1,9 @@
 package com.suances.carta.service;
 
+import com.suances.carta.dto.event.StockBajoEvent;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.suances.carta.dto.event.StockBajoEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
@@ -30,7 +31,7 @@ public class EventProducer {
             ObjectRecord<String, String> record = StreamRecords.newRecord()
                     .in(STREAM_NAME)
                     .ofObject(json);
-            
+
             redisTemplate.opsForStream().add(record);
             log.info("Evento stock bajo publicado para ingrediente: {}", event.getIngredienteNombre());
         } catch (JsonProcessingException e) {
