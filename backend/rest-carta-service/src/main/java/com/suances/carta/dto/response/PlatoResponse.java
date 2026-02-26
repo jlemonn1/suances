@@ -19,6 +19,8 @@ public class PlatoResponse {
     private Boolean activo;
     private LocalDateTime createdAt;
     private List<ImagenResponse> imagenes;
+    private CategoriaResponse categoria;
+    private List<TipoCartaResponse> tiposCarta;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -40,6 +42,10 @@ public class PlatoResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public List<ImagenResponse> getImagenes() { return imagenes; }
     public void setImagenes(List<ImagenResponse> imagenes) { this.imagenes = imagenes; }
+    public CategoriaResponse getCategoria() { return categoria; }
+    public void setCategoria(CategoriaResponse categoria) { this.categoria = categoria; }
+    public List<TipoCartaResponse> getTiposCarta() { return tiposCarta; }
+    public void setTiposCarta(List<TipoCartaResponse> tiposCarta) { this.tiposCarta = tiposCarta; }
 
     public static PlatoResponse fromEntity(com.suances.carta.domain.model.Plato entity) {
         PlatoResponse response = new PlatoResponse();
@@ -68,6 +74,17 @@ public class PlatoResponse {
                 .map(ImagenResponse::fromEntity)
                 .collect(Collectors.toList());
         response.setImagenes(imagenes);
+
+        if (entity.getCategoria() != null) {
+            response.setCategoria(CategoriaResponse.fromEntity(entity.getCategoria()));
+        }
+
+        if (entity.getTiposCarta() != null && !entity.getTiposCarta().isEmpty()) {
+            List<TipoCartaResponse> tiposCarta = entity.getTiposCarta().stream()
+                .map(TipoCartaResponse::fromEntity)
+                .collect(Collectors.toList());
+            response.setTiposCarta(tiposCarta);
+        }
 
         return response;
     }

@@ -3,6 +3,7 @@ package com.suances.carta.dto.request;
 import com.suances.carta.domain.enums.UnidadMedida;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 public class IngredienteRequest {
 
@@ -23,6 +24,8 @@ public class IngredienteRequest {
     @DecimalMin(value = "0", message = "El umbral de alerta debe ser mayor o igual a 0")
     private BigDecimal umbralAlerta;
 
+    private UUID categoriaId;
+
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
     public UnidadMedida getUnidadMedida() { return unidadMedida; }
@@ -33,4 +36,6 @@ public class IngredienteRequest {
     public void setStockActual(BigDecimal stockActual) { this.stockActual = stockActual; }
     public BigDecimal getUmbralAlerta() { return umbralAlerta; }
     public void setUmbralAlerta(BigDecimal umbralAlerta) { this.umbralAlerta = umbralAlerta; }
+    public UUID getCategoriaId() { return categoriaId; }
+    public void setCategoriaId(UUID categoriaId) { this.categoriaId = categoriaId; }
 }

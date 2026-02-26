@@ -1,5 +1,6 @@
 package com.suances.carta.service;
 
+import com.suances.carta.domain.model.Categoria;
 import com.suances.carta.domain.model.Distribuidor;
 import com.suances.carta.domain.model.Escandallo;
 import com.suances.carta.domain.model.EscandalloDetalle;
@@ -7,6 +8,7 @@ import com.suances.carta.domain.model.Ingrediente;
 import com.suances.carta.dto.request.IngredienteRequest;
 import com.suances.carta.dto.response.IngredienteResponse;
 import com.suances.carta.exception.ResourceNotFoundException;
+import com.suances.carta.repository.CategoriaRepository;
 import com.suances.carta.repository.DistribuidorRepository;
 import com.suances.carta.repository.EscandalloRepository;
 import com.suances.carta.repository.IngredienteRepository;
@@ -23,13 +25,16 @@ public class IngredienteService {
     private final IngredienteRepository ingredienteRepository;
     private final DistribuidorRepository distribuidorRepository;
     private final EscandalloRepository escandalloRepository;
+    private final CategoriaRepository categoriaRepository;
 
     public IngredienteService(IngredienteRepository ingredienteRepository,
             DistribuidorRepository distribuidorRepository,
-            EscandalloRepository escandalloRepository) {
+            EscandalloRepository escandalloRepository,
+            CategoriaRepository categoriaRepository) {
         this.ingredienteRepository = ingredienteRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.escandalloRepository = escandalloRepository;
+        this.categoriaRepository = categoriaRepository;
     }
 
     @Transactional
@@ -41,6 +46,12 @@ public class IngredienteService {
         ingrediente.setStockActual(request.getStockActual());
         ingrediente.setUmbralAlerta(request.getUmbralAlerta());
         ingrediente.setActivo(true);
+
+        if (request.getCategoriaId() != null) {
+            Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+            ingrediente.setCategoria(categoria);
+        }
 
         Ingrediente saved = ingredienteRepository.save(ingrediente);
         return IngredienteResponse.fromEntity(saved);
@@ -76,6 +87,14 @@ public class IngredienteService {
         ingrediente.setPrecioPorUnidad(request.getPrecioPorUnidad());
         ingrediente.setStockActual(request.getStockActual());
         ingrediente.setUmbralAlerta(request.getUmbralAlerta());
+
+        if (request.getCategoriaId() != null) {
+            Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+            ingrediente.setCategoria(categoria);
+        } else {
+            ingrediente.setCategoria(null);
+        }
 
         Ingrediente saved = ingredienteRepository.save(ingrediente);
 

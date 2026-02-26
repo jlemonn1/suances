@@ -1,4 +1,5 @@
 com\suances\carta\dto\response\TipoCartaResponse$PlatoInfo.class
+com\suances\carta\domain\model\Categoria.class
 com\suances\carta\service\IngredienteService.class
 com\suances\carta\dto\request\TipoCartaRequest.class
 com\suances\carta\domain\model\Ingrediente.class
@@ -7,11 +8,13 @@ com\suances\carta\service\PlatoService.class
 com\suances\carta\dto\response\PlatoResponse.class
 com\suances\carta\repository\EscandalloDetalleRepository.class
 com\suances\carta\service\EventProducer.class
+com\suances\carta\dto\request\AsociarPlatosRequest.class
 com\suances\carta\repository\PlatoRepository.class
 com\suances\carta\dto\event\StockBajoEvent.class
 com\suances\carta\domain\model\EventosProcesados.class
 com\suances\carta\security\JwtAuthenticationEntryPoint.class
 com\suances\carta\consumer\EventConsumer.class
+com\suances\carta\dto\request\CategoriaRequest.class
 com\suances\carta\dto\response\PlatoResponse$ImagenResponse.class
 com\suances\carta\dto\request\EscandalloRequest$IngredienteCantidad.class
 com\suances\carta\security\JwtAuthenticationFilter.class
@@ -22,11 +25,14 @@ com\suances\carta\controller\IngredienteController.class
 com\suances\carta\controller\TipoCartaController.class
 com\suances\carta\repository\DistribuidorRepository.class
 com\suances\carta\domain\model\PlatoImagen.class
+com\suances\carta\repository\CategoriaRepository.class
 com\suances\carta\repository\EscandalloRepository.class
 com\suances\carta\exception\BusinessRuleException.class
 com\suances\carta\exception\GlobalExceptionHandler.class
 com\suances\carta\service\EscandalloService.class
 com\suances\carta\controller\PlatoController.class
+com\suances\carta\dto\response\CategoriaResponse.class
+com\suances\carta\domain\enums\CategoriaTipo.class
 com\suances\carta\domain\model\EscandalloDetalle.class
 com\suances\carta\dto\request\DistribuidorRequest.class
 com\suances\carta\CartaApplication.class
@@ -37,6 +43,7 @@ com\suances\carta\dto\request\PlatoImagenRequest.class
 com\suances\carta\repository\IngredienteRepository.class
 com\suances\carta\service\DistribuidorService.class
 com\suances\carta\domain\model\Plato.class
+com\suances\carta\controller\CategoriaController.class
 com\suances\carta\repository\EventosProcesadosRepository.class
 com\suances\carta\security\SecurityConfig.class
 com\suances\carta\dto\response\EscandalloResponse.class
@@ -51,5 +58,6 @@ com\suances\carta\domain\model\Distribuidor.class
 com\suances\carta\security\Rol.class
 com\suances\carta\dto\event\SalaPedidoEvent.class
 com\suances\carta\exception\ResourceNotFoundException.class
+com\suances\carta\service\CategoriaService.class
 com\suances\carta\repository\PlatoImagenRepository.class
 com\suances\carta\dto\request\EscandalloRequest.class

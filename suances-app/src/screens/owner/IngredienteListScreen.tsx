@@ -1,0 +1,203 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  View,
+  StyleSheet,
+  SectionList,
+  RefreshControl,
+  Text,
+  TextInput,
+} from 'react-native';
+import { EmptyState, Loading, Button } from '../../components/common';
+import { colors, spacing, typography } from '../../theme';
+import { IngredienteResponse, CategoriaResponse } from '../../types/ingrediente';
+import { useIngredienteStore } from '../../store/ingredienteStore';
+import { useCategoriaStore } from '../../store/categoriaStore';
+import { IngredienteItem } from '../../components/carta/IngredienteItem';
+
+interface IngredienteListScreenProps {
+  navigation: any;
+}
+
+export const IngredienteListScreen: React.FC<IngredienteListScreenProps> = ({
+  navigation,
+}) => {
+  const { ingredientes, isLoading, fetchIngredientes } = useIngredienteStore();
+  const { categorias, fetchCategorias } = useCategoriaStore();
+  const [searchText, setSearchText] = useState('');
+
+  useEffect(() => {
+    if (ingredientes.length === 0) {
+      fetchIngredientes(true);
+    }
+    fetchCategorias(true, 'INGREDIENTE');
+  }, []);
+
+  const onRefresh = () => {
+    fetchIngredientes(true);
+    fetchCategorias(true, 'INGREDIENTE');
+  };
+
+  const filteredData = useMemo(() => {
+    const searchLower = searchText.toLowerCase().trim();
+    
+    if (!searchLower) {
+      return ingredientes;
+    }
+
+    return ingredientes.filter((ing) => {
+      const nombreMatch = ing.nombre.toLowerCase().includes(searchLower);
+      const categoriaMatch = ing.categoria?.nombre.toLowerCase().includes(searchLower);
+      return nombreMatch || categoriaMatch;
+    });
+  }, [ingredientes, searchText]);
+
+  const sections = useMemo(() => {
+    const grouped: { [key: string]: IngredienteResponse[] } = {};
+
+    filteredData.forEach((ing) => {
+      const categoriaKey = ing.categoria?.nombre || 'Sin categoría';
+      if (!grouped[categoriaKey]) {
+        grouped[categoriaKey] = [];
+      }
+      grouped[categoriaKey].push(ing);
+    });
+
+    return Object.keys(grouped)
+      .sort((a, b) => {
+        if (a === 'Sin categoría') return 1;
+        if (b === 'Sin categoría') return -1;
+        return a.localeCompare(b);
+      })
+      .map((key) => ({
+        title: key,
+        data: grouped[key],
+      }));
+  }, [filteredData]);
+
+  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{section.title}</Text>
+      <Text style={styles.sectionCount}>
+        {sections.find((s) => s.title === section.title)?.data.length || 0} items
+      </Text>
+    </View>
+  );
+
+  const renderItem = ({ item }: { item: IngredienteResponse }) => (
+    <IngredienteItem
+      ingrediente={item}
+      onPress={() => navigation.navigate('IngredienteForm', { ingrediente: item })}
+    />
+  );
+
+  if (isLoading && ingredientes.length === 0) {
+    return <Loading fullScreen message="Cargando ingredientes..." />;
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por nombre o categoría..."
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholderTextColor={colors.textSecondary}
+        />
+        {searchText.length > 0 && (
+          <Text style={styles.searchResultCount}>
+            {filteredData.length} resultado{filteredData.length !== 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+
+      {filteredData.length === 0 ? (
+        <View style={styles.emptyWrapper}>
+          <EmptyState
+            title={searchText ? 'Sin resultados' : 'No hay ingredientes'}
+            message={
+              searchText
+                ? 'Prueba con otros términos de búsqueda'
+                : 'Crea los ingredientes que usarás en tus platos'
+            }
+            actionLabel={searchText ? undefined : 'Crear Ingrediente'}
+            onAction={searchText ? undefined : () => navigation.navigate('IngredienteForm', {})}
+          />
+        </View>
+      ) : (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          contentContainerStyle={styles.list}
+          stickySectionHeadersEnabled={false}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
+          }
+        />
+      )}
+
+      <Button
+        title="+ Nuevo Ingrediente"
+        onPress={() => navigation.navigate('IngredienteForm', {})}
+        style={styles.fab}
+      />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  searchContainer: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  searchInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...typography.body,
+    color: colors.text,
+  },
+  searchResultCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  list: {
+    padding: spacing.md,
+    paddingBottom: 80,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.primary,
+  },
+  sectionCount: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  emptyWrapper: {
+    flex: 1,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
+  },
+});

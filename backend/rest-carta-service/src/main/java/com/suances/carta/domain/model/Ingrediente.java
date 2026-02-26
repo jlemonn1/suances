@@ -52,6 +52,10 @@ public class Ingrediente {
     )
     private Set<Distribuidor> distribuidores = new HashSet<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -85,4 +89,6 @@ public class Ingrediente {
     public void setAlertaEnviada(Boolean alertaEnviada) { this.alertaEnviada = alertaEnviada; }
     public Set<Distribuidor> getDistribuidores() { return distribuidores; }
     public void setDistribuidores(Set<Distribuidor> distribuidores) { this.distribuidores = distribuidores; }
+    public Categoria getCategoria() { return categoria; }
+    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
 }

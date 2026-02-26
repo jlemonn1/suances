@@ -1,11 +1,13 @@
 package com.suances.carta.service;
 
+import com.suances.carta.domain.model.Categoria;
 import com.suances.carta.domain.model.Plato;
 import com.suances.carta.domain.model.PlatoImagen;
 import com.suances.carta.dto.request.PlatoRequest;
 import com.suances.carta.dto.request.PlatoImagenRequest;
 import com.suances.carta.dto.response.PlatoResponse;
 import com.suances.carta.exception.ResourceNotFoundException;
+import com.suances.carta.repository.CategoriaRepository;
 import com.suances.carta.repository.PlatoRepository;
 import com.suances.carta.repository.PlatoImagenRepository;
 import org.springframework.stereotype.Service;
@@ -19,10 +21,13 @@ public class PlatoService {
 
     private final PlatoRepository platoRepository;
     private final PlatoImagenRepository platoImagenRepository;
+    private final CategoriaRepository categoriaRepository;
 
-    public PlatoService(PlatoRepository platoRepository, PlatoImagenRepository platoImagenRepository) {
+    public PlatoService(PlatoRepository platoRepository, PlatoImagenRepository platoImagenRepository,
+            CategoriaRepository categoriaRepository) {
         this.platoRepository = platoRepository;
         this.platoImagenRepository = platoImagenRepository;
+        this.categoriaRepository = categoriaRepository;
     }
 
     @Transactional
@@ -33,6 +38,12 @@ public class PlatoService {
         plato.setPrecioVenta(request.getPrecioVenta());
         plato.setContadorPedidos(0L);
         plato.setActivo(true);
+
+        if (request.getCategoriaId() != null) {
+            Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+            plato.setCategoria(categoria);
+        }
 
         Plato saved = platoRepository.save(plato);
         return PlatoResponse.fromEntity(saved);
@@ -64,6 +75,14 @@ public class PlatoService {
         plato.setNombre(request.getNombre());
         plato.setDescripcion(request.getDescripcion());
         plato.setPrecioVenta(request.getPrecioVenta());
+
+        if (request.getCategoriaId() != null) {
+            Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+            plato.setCategoria(categoria);
+        } else {
+            plato.setCategoria(null);
+        }
 
         Plato saved = platoRepository.save(plato);
         return PlatoResponse.fromEntity(saved);

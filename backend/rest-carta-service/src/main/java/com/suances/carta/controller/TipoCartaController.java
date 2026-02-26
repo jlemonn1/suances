@@ -1,5 +1,6 @@
 package com.suances.carta.controller;
 
+import com.suances.carta.dto.request.AsociarPlatosRequest;
 import com.suances.carta.dto.request.TipoCartaRequest;
 import com.suances.carta.dto.response.TipoCartaResponse;
 import com.suances.carta.service.TipoCartaService;
@@ -56,8 +57,8 @@ public class TipoCartaController {
     @PreAuthorize("hasRole('PROPIETARIO')")
     public ResponseEntity<TipoCartaResponse> asociarPlatos(
             @PathVariable UUID id,
-            @RequestBody List<UUID> platoIds) {
-        return ResponseEntity.ok(tipoCartaService.asociarPlatos(id, platoIds));
+            @RequestBody AsociarPlatosRequest request) {
+        return ResponseEntity.ok(tipoCartaService.asociarPlatos(id, request.getPlatoIds()));
     }
 
     @GetMapping("/carta/activa")

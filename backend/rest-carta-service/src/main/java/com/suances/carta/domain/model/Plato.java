@@ -38,13 +38,12 @@ public class Plato {
     @OneToOne(mappedBy = "plato", cascade = CascadeType.ALL, orphanRemoval = true)
     private Escandallo escandallo;
 
-    @ManyToMany
-    @JoinTable(
-        name = "tipo_carta_plato",
-        joinColumns = @JoinColumn(name = "plato_id"),
-        inverseJoinColumns = @JoinColumn(name = "tipo_carta_id")
-    )
+    @ManyToMany(mappedBy = "platos")
     private List<TipoCarta> tiposCarta = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
 
     @PrePersist
     protected void onCreate() {
@@ -71,4 +70,6 @@ public class Plato {
     public void setEscandallo(Escandallo escandallo) { this.escandallo = escandallo; }
     public List<TipoCarta> getTiposCarta() { return tiposCarta; }
     public void setTiposCarta(List<TipoCarta> tiposCarta) { this.tiposCarta = tiposCarta; }
+    public Categoria getCategoria() { return categoria; }
+    public void setCategoria(Categoria categoria) { this.categoria = categoria; }
 }

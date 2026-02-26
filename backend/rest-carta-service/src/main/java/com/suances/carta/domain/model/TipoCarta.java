@@ -30,7 +30,12 @@ public class TipoCarta {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @ManyToMany(mappedBy = "tiposCarta")
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "tipo_carta_plato",
+        joinColumns = @JoinColumn(name = "tipo_carta_id"),
+        inverseJoinColumns = @JoinColumn(name = "plato_id")
+    )
     private List<Plato> platos = new ArrayList<>();
 
     @PrePersist

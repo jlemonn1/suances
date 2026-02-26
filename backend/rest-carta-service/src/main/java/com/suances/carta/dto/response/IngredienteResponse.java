@@ -15,6 +15,7 @@ public class IngredienteResponse {
     private BigDecimal umbralAlerta;
     private Boolean activo;
     private LocalDateTime createdAt;
+    private CategoriaResponse categoria;
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -32,6 +33,8 @@ public class IngredienteResponse {
     public void setActivo(Boolean activo) { this.activo = activo; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public CategoriaResponse getCategoria() { return categoria; }
+    public void setCategoria(CategoriaResponse categoria) { this.categoria = categoria; }
 
     public static IngredienteResponse fromEntity(com.suances.carta.domain.model.Ingrediente entity) {
         IngredienteResponse response = new IngredienteResponse();
@@ -43,6 +46,9 @@ public class IngredienteResponse {
         response.setUmbralAlerta(entity.getUmbralAlerta());
         response.setActivo(entity.getActivo());
         response.setCreatedAt(entity.getCreatedAt());
+        if (entity.getCategoria() != null) {
+            response.setCategoria(CategoriaResponse.fromEntity(entity.getCategoria()));
+        }
         return response;
     }
 }
