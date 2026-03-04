@@ -1,9 +1,12 @@
 server:
   port: 8080
 
+  servlet:
+    context-path: /suances
+
 spring:
   application:
-    name: rest-media-service
+    name: media-service
 
 app:
   jwt:

@@ -1,6 +1,9 @@
 server:
   port: 8085
 
+  servlet:
+    context-path: /suances
+
 spring:
   application:
     name: personal-service

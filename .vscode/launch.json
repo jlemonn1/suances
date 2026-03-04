@@ -29,6 +29,16 @@
             "projectName": "carta-service (2)",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-MediaApplication<media>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.media.MediaApplication",
+            "projectName": "media",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
