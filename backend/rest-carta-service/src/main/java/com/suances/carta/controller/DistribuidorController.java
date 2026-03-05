@@ -22,26 +22,26 @@ public class DistribuidorController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<DistribuidorResponse> crear(@Valid @RequestBody DistribuidorRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(distribuidorService.crear(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('PROPIETARIO', 'GERENTE')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<List<DistribuidorResponse>> listar(
             @RequestParam(required = false, defaultValue = "true") Boolean activo) {
         return ResponseEntity.ok(distribuidorService.listar(activo));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PROPIETARIO', 'GERENTE')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<DistribuidorResponse> obtener(@PathVariable UUID id) {
         return ResponseEntity.ok(distribuidorService.obtener(id));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<DistribuidorResponse> actualizar(
             @PathVariable UUID id,
             @Valid @RequestBody DistribuidorRequest request) {
@@ -49,7 +49,7 @@ public class DistribuidorController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         distribuidorService.desactivar(id);
         return ResponseEntity.noContent().build();

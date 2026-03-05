@@ -22,7 +22,7 @@ public class IngredienteController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<IngredienteResponse> crear(@Valid @RequestBody IngredienteRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ingredienteService.crear(request));
     }
@@ -39,7 +39,7 @@ public class IngredienteController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<IngredienteResponse> actualizar(
             @PathVariable UUID id, 
             @Valid @RequestBody IngredienteRequest request) {
@@ -47,14 +47,14 @@ public class IngredienteController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         ingredienteService.desactivar(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/distribuidores/{distribuidorId}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> asociarDistribuidor(
             @PathVariable UUID id, 
             @PathVariable UUID distribuidorId) {
@@ -63,7 +63,7 @@ public class IngredienteController {
     }
 
     @DeleteMapping("/{id}/distribuidores/{distribuidorId}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desasociarDistribuidor(
             @PathVariable UUID id, 
             @PathVariable UUID distribuidorId) {

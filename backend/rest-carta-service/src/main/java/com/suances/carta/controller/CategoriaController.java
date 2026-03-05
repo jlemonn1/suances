@@ -23,7 +23,7 @@ public class CategoriaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<CategoriaResponse> crear(@Valid @RequestBody CategoriaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(categoriaService.crear(request));
     }
@@ -41,7 +41,7 @@ public class CategoriaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<CategoriaResponse> actualizar(
             @PathVariable UUID id, 
             @Valid @RequestBody CategoriaRequest request) {
@@ -49,7 +49,7 @@ public class CategoriaController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         categoriaService.desactivar(id);
         return ResponseEntity.noContent().build();

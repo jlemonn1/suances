@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  reservas-db:
+    image: postgres:16
+    container_name: reservas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-reservas}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5435:5432"
+    volumes:
+      - reservas-db-data:/var/lib/postgresql/data
+
+  reservas-redis:
+    image: redis:7
+    container_name: reservas-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6380:6379"
+
+  reservas-service:
+    build: .
+    image: suances/reservas-service:local
+    container_name: reservas-service
+    depends_on:
+      - reservas-db
+      - reservas-redis
+    env_file:
+      - .env
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://reservas-db:5432/${POSTGRES_DB:-reservas}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATA_REDIS_HOST: reservas-redis
+
+volumes:
+  reservas-db-data:

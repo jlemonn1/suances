@@ -1,0 +1,189 @@
+{
+  "info": {
+    "_postman_id": "7f2c52f3-0eaf-4e07-8a4f-09ec6299d61c",
+    "name": "ReservaService API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para probar el micro de reservas"
+  },
+  "item": [
+    {
+      "name": "Salas",
+      "item": [
+        {
+          "name": "Crear sala",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/salas", "host": ["{{baseUrl}}"], "path": ["api","reservas","salas"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sala Principal\",\n  \"capacidadMaxima\": 60\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar salas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/salas", "host": ["{{baseUrl}}"], "path": ["api","reservas","salas"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mesas",
+      "item": [
+        {
+          "name": "Crear mesa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/salas/{{salaId}}/mesas", "host": ["{{baseUrl}}"], "path": ["api","reservas","salas","{{salaId}}","mesas"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": 12,\n  \"capacidad\": 4,\n  \"visibleOnline\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Bloquear mesa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/mesas/{{mesaId}}/bloqueos", "host": ["{{baseUrl}}"], "path": ["api","reservas","mesas","{{mesaId}}","bloqueos"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"MANTENIMIENTO\",\n  \"fechaDesde\": \"2026-03-05\",\n  \"fechaHasta\": \"2026-03-05\",\n  \"franjas\": [\"{{franjaId}}\"],\n  \"motivo\": \"Avería silla\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Franjas",
+      "item": [
+        {
+          "name": "Crear franja",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/franjas", "host": ["{{baseUrl}}"], "path": ["api","reservas","franjas"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Comida 1\",\n  \"tipo\": \"COMIDA\",\n  \"horaInicio\": \"13:00\",\n  \"horaFin\": \"14:30\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reservas",
+      "item": [
+        {
+          "name": "Listar reservas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservas/reservas?fecha={{fecha}}&franjaId={{franjaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","reservas","reservas"],
+              "query": [
+                {"key": "fecha", "value": "{{fecha}}"},
+                {"key": "franjaId", "value": "{{franjaId}}"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Crear reserva manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"},
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/reservas", "host": ["{{baseUrl}}"], "path": ["api","reservas","reservas"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mesaId\": \"{{mesaId}}\",\n  \"fecha\": \"{{fecha}}\",\n  \"franjaId\": \"{{franjaId}}\",\n  \"comensales\": 4,\n  \"nombre\": \"Pedro\",\n  \"telefono\": \"+34600000000\",\n  \"origen\": \"MANUAL\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Crear reserva pública",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/public/reservas", "host": ["{{baseUrl}}"], "path": ["api","reservas","public","reservas"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fecha}}\",\n  \"franjaId\": \"{{franjaId}}\",\n  \"comensales\": 2,\n  \"nombre\": \"Lucia\",\n  \"telefono\": \"+34600000001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirmar llegada",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {"raw": "{{baseUrl}}/api/reservas/reservas/{{reservaId}}/confirmar", "host": ["{{baseUrl}}"], "path": ["api","reservas","reservas","{{reservaId}}","confirmar"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Waitlist",
+      "item": [
+        {
+          "name": "Listar waitlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{authToken}}"}
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reservas/waitlist?fecha={{fecha}}&franjaId={{franjaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","reservas","waitlist"],
+              "query": [
+                {"key": "fecha", "value": "{{fecha}}"},
+                {"key": "franjaId", "value": "{{franjaId}}"}
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8087"},
+    {"key": "authToken", "value": ""},
+    {"key": "salaId", "value": ""},
+    {"key": "mesaId", "value": ""},
+    {"key": "franjaId", "value": ""},
+    {"key": "reservaId", "value": ""},
+    {"key": "fecha", "value": "2026-03-05"}
+  ]
+}

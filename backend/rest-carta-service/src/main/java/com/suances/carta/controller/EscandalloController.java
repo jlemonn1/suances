@@ -21,7 +21,7 @@ public class EscandalloController {
     }
 
     @PostMapping("/{platoId}/escandallo")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<EscandalloResponse> crearOActualizar(
             @PathVariable UUID platoId,
             @Valid @RequestBody EscandalloRequest request) {
@@ -35,7 +35,7 @@ public class EscandalloController {
     }
 
     @DeleteMapping("/{platoId}/escandallo")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> eliminar(@PathVariable UUID platoId) {
         escandalloService.eliminar(platoId);
         return ResponseEntity.noContent().build();

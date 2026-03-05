@@ -23,7 +23,7 @@ public class PlatoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PlatoResponse> crear(@Valid @RequestBody PlatoRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(platoService.crear(request));
     }
@@ -40,7 +40,7 @@ public class PlatoController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PlatoResponse> actualizar(
             @PathVariable UUID id, 
             @Valid @RequestBody PlatoRequest request) {
@@ -48,14 +48,14 @@ public class PlatoController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         platoService.desactivar(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/imagenes")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PlatoResponse> agregarImagen(
             @PathVariable UUID id,
             @Valid @RequestBody PlatoImagenRequest request) {
@@ -68,7 +68,7 @@ public class PlatoController {
     }
 
     @DeleteMapping("/{id}/imagenes/{imgId}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> eliminarImagen(
             @PathVariable UUID id,
             @PathVariable UUID imgId) {

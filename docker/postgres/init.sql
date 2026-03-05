@@ -7,6 +7,6 @@ CREATE DATABASE carta;
 
 CREATE DATABASE personal;
 
--- Example for future microservices:
+CREATE DATABASE reservas;
 -- CREATE DATABASE catalog;
 -- CREATE DATABASE orders;

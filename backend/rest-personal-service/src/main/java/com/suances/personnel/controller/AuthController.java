@@ -6,19 +6,24 @@ import com.suances.personnel.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordEncoder passwordEncoder) {
         this.authService = authService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/login")
@@ -29,6 +34,11 @@ public class AuthController {
 
         LoginResponse response = authService.login(request, ip, userAgent);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/hash")
+    public ResponseEntity<String> generateHash(@RequestParam String password) {
+        return ResponseEntity.ok(passwordEncoder.encode(password));
     }
 
     private String getClientIp(HttpServletRequest request) {

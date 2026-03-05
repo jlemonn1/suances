@@ -19,11 +19,19 @@ import { DistribuidoresScreen } from '../screens/owner/DistribuidoresScreen';
 import { PersonalListScreen } from '../screens/owner/PersonalListScreen';
 import { PersonalDetailScreen } from '../screens/owner/PersonalDetailScreen';
 import { PersonalFormScreen } from '../screens/owner/PersonalFormScreen';
+import { ReservasHomeScreen } from '../screens/owner/reservas/ReservasHomeScreen';
+import { EspaciosScreen } from '../screens/owner/reservas/EspaciosScreen';
+import { SalaDetailScreen } from '../screens/owner/reservas/SalaDetailScreen';
+import { FranjasScreen } from '../screens/owner/reservas/FranjasScreen';
+import { ReservaEditorScreen } from '../screens/owner/reservas/ReservaEditorScreen';
+import { ReservaDetailScreen } from '../screens/owner/reservas/ReservaDetailScreen';
+import { ReservasOnlineScreen } from '../screens/owner/reservas/ReservasOnlineScreen';
+import { WaitlistScreen } from '../screens/owner/reservas/WaitlistScreen';
 
 import { colors } from '../theme';
 
-const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator<any>();
+const Stack = createNativeStackNavigator<any>();
 
 const screenOptions = {
   headerStyle: { backgroundColor: colors.primary },
@@ -111,16 +119,62 @@ const PersonalStack = () => (
   </Stack.Navigator>
 );
 
+const ReservasStack = () => (
+  <Stack.Navigator screenOptions={screenOptions}>
+    <Stack.Screen
+      name="ReservasHome"
+      component={ReservasHomeScreen}
+      options={{ title: 'Reservas' }}
+    />
+    <Stack.Screen
+      name="ReservaEditor"
+      component={ReservaEditorScreen}
+      options={{ title: 'Nueva Reserva' }}
+    />
+    <Stack.Screen
+      name="ReservaDetail"
+      component={ReservaDetailScreen as any}
+      options={{ title: 'Detalle Reserva' }}
+    />
+    <Stack.Screen
+      name="ReservasOnline"
+      component={ReservasOnlineScreen}
+      options={{ title: 'Reservas Online' }}
+    />
+    <Stack.Screen
+      name="Waitlist"
+      component={WaitlistScreen}
+      options={{ title: 'Lista de Espera' }}
+    />
+    <Stack.Screen
+      name="Espacios"
+      component={EspaciosScreen}
+      options={{ title: 'Salas y Mesas' }}
+    />
+    <Stack.Screen
+      name="SalaDetail"
+      component={SalaDetailScreen as any}
+      options={{ title: 'Detalle Sala' }}
+    />
+    <Stack.Screen
+      name="Franjas"
+      component={FranjasScreen}
+      options={{ title: 'Franjas Horarias' }}
+    />
+  </Stack.Navigator>
+);
+
 export const OwnerNavigator = () => {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let icon = '';
-          if (route.name === 'Dashboard') icon = '📊';
-          else if (route.name === 'Carta') icon = '📋';
-          else if (route.name === 'Inventario') icon = '📦';
-          else if (route.name === 'Personal') icon = '👥';
+           if (route.name === 'Dashboard') icon = '📊';
+           else if (route.name === 'Reservas') icon = '🪑';
+           else if (route.name === 'Carta') icon = '📋';
+           else if (route.name === 'Inventario') icon = '📦';
+           else if (route.name === 'Personal') icon = '👥';
           
           return <Text style={{ fontSize: size }}>{icon}</Text>;
         },
@@ -131,6 +185,7 @@ export const OwnerNavigator = () => {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
+      <Tab.Screen name="Reservas" component={ReservasStack} />
       <Tab.Screen name="Carta" component={CartaStack} />
       <Tab.Screen name="Inventario" component={InventarioScreen} />
       <Tab.Screen name="Personal" component={PersonalStack} />

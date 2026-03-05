@@ -43,6 +43,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/actuator/**").permitAll()
                                                 .requestMatchers("/error").permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/auth/hash").permitAll()
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

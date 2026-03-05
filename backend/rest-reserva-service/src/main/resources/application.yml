@@ -1,0 +1,46 @@
+server:
+  port: 8087
+  servlet:
+    context-path: /api/reservas
+
+spring:
+  application:
+    name: reservas-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/reservas}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 2000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+app:
+  jwt:
+    issuer: ${APP_JWT_ISSUER:personnel-service}
+    audience: ${APP_JWT_AUDIENCE:reservas-service}
+    secret: ${APP_JWT_SECRET:SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+    allowed-roles: ${APP_JWT_ALLOWED_ROLES:OWNER,MANAGER,WAITER,CUSTOMER}
+  security:
+    bcrypt-strength: 12
+  redis:
+    stream-input: ${APP_REDIS_STREAM_INPUT:sala.events}
+    stream-output: ${APP_REDIS_STREAM_OUTPUT:reservas.events}
+    consumer-group: ${APP_REDIS_CONSUMER_GROUP:reservas-group}
+  allocation:
+    hold-timeout-minutes: ${APP_ALLOCATION_HOLD_TIMEOUT_MINUTES:15}

@@ -1,7 +1,8 @@
 package com.suances.carta.security;
 
 public enum Rol {
-    PROPIETARIO,
-    GERENTE,
-    CAMARERO
+    OWNER,
+    MANAGER,
+    WAITER,
+    CUSTOMER
 }

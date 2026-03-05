@@ -23,7 +23,7 @@ public class TipoCartaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<TipoCartaResponse> crear(@Valid @RequestBody TipoCartaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tipoCartaService.crear(request));
     }
@@ -39,7 +39,7 @@ public class TipoCartaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<TipoCartaResponse> actualizar(
             @PathVariable UUID id, 
             @Valid @RequestBody TipoCartaRequest request) {
@@ -47,14 +47,14 @@ public class TipoCartaController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         tipoCartaService.desactivar(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/platos")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<TipoCartaResponse> asociarPlatos(
             @PathVariable UUID id,
             @RequestBody AsociarPlatosRequest request) {

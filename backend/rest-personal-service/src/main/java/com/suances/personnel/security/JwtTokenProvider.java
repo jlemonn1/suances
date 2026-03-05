@@ -20,12 +20,18 @@ public class JwtTokenProvider {
 
     private final SecretKey key;
     private final long expiration;
+    private final String issuer;
+    private final String audience;
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.expiration}") long expiration) {
+            @Value("${app.jwt.expiration}") long expiration,
+            @Value("${app.jwt.issuer:personnel-service}") String issuer,
+            @Value("${app.jwt.audience:reservas-service}") String audience) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
+        this.issuer = issuer;
+        this.audience = audience;
     }
 
     public String generateToken(UUID userId, String fullName, Rol rol) {
@@ -34,7 +40,8 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(userId.toString())
-                .issuer("personnel-service")
+                .issuer(issuer)
+                .audience().add(audience).and()
                 .claim("name", fullName)
                 .claim("rol", rol.name())
                 .issuedAt(now)

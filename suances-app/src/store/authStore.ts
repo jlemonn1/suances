@@ -77,11 +77,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   isOwner: () => {
     const { user } = get();
-    return user?.rol === 'PROPIETARIO';
+    return user?.rol === 'OWNER';
   },
 
   isStaff: () => {
     const { user } = get();
-    return user?.rol === 'GERENTE' || user?.rol === 'CAMARERO';
+    return user?.rol === 'MANAGER' || user?.rol === 'WAITER';
   },
 }));

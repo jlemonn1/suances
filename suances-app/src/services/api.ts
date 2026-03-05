@@ -13,6 +13,12 @@ export const cartaApi: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+export const reservasApi: AxiosInstance = axios.create({
+  baseURL: API_CONFIG.RESERVAS_BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
+  headers: { 'Content-Type': 'application/json' },
+});
+
 let authToken: string | null = null;
 
 export const setAuthToken = (token: string | null) => {
@@ -20,10 +26,12 @@ export const setAuthToken = (token: string | null) => {
   if (token) {
     personalApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     cartaApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    reservasApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     console.log('API token set:', token.substring(0, 20) + '...');
   } else {
     delete personalApi.defaults.headers.common['Authorization'];
     delete cartaApi.defaults.headers.common['Authorization'];
+    delete reservasApi.defaults.headers.common['Authorization'];
     console.log('API token cleared');
   }
 };
@@ -36,6 +44,13 @@ personalApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 cartaApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (authToken && config.headers) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  return config;
+});
+
+reservasApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   if (authToken && config.headers) {
     config.headers.Authorization = `Bearer ${authToken}`;
   }

@@ -29,6 +29,16 @@
             "projectName": "carta-service (2)",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-ReservaServiceApplication<reservas-service>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.reservas.ReservaServiceApplication",
+            "projectName": "reservas-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }

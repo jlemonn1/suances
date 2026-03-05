@@ -26,6 +26,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
     expiration: 86400000
+    issuer: ${JWT_ISSUER:personnel-service}
+    audience: ${JWT_AUDIENCE:reservas-service}
   security:
     bcrypt-strength: 12
   admin:

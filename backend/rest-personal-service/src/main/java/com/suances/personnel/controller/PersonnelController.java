@@ -26,25 +26,25 @@ public class PersonnelController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PersonnelResponse> crear(@Valid @RequestBody CreatePersonnelRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(personnelService.crear(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('PROPIETARIO', 'GERENTE')")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
     public ResponseEntity<List<PersonnelResponse>> listar() {
         return ResponseEntity.ok(personnelService.listar());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO') or #id == authentication.principal")
+    @PreAuthorize("hasRole('OWNER') or #id == authentication.principal")
     public ResponseEntity<PersonnelResponse> obtener(@PathVariable UUID id) {
         return ResponseEntity.ok(personnelService.obtener(id));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO') or #id == authentication.principal")
+    @PreAuthorize("hasRole('OWNER') or #id == authentication.principal")
     public ResponseEntity<PersonnelResponse> actualizar(
             @PathVariable UUID id,
             @Valid @RequestBody UpdatePersonnelRequest request) {
@@ -52,7 +52,7 @@ public class PersonnelController {
     }
 
     @PatchMapping("/{id}/role")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<RoleChangeResponse> cambiarRol(
             @PathVariable UUID id,
             @Valid @RequestBody ChangeRoleRequest request) {
@@ -60,7 +60,7 @@ public class PersonnelController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PROPIETARIO')")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         personnelService.desactivar(id);
         return ResponseEntity.noContent().build();

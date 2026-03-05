@@ -34,12 +34,12 @@ public class DataInitializer {
                     .username(adminConfig.getUsername())
                     .password(passwordEncoder.encode(adminConfig.getPassword()))
                     .fullName("Admin Inicial")
-                    .role(Rol.PROPIETARIO)
+                    .role(Rol.OWNER)
                     .activo(true)
                     .build();
 
             usuarioRepository.save(admin);
-            log.info("Usuario admin creado: {} con rol PROPIETARIO", admin.getUsername());
+            log.info("Usuario admin creado: {} con rol OWNER", admin.getUsername());
         };
     }
 }

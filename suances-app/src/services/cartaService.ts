@@ -20,6 +20,31 @@ import {
   EscandalloRequest,
 } from '../types/carta';
 
+type ListApiResponse<T> =
+  | T[]
+  | {
+      data?: T[];
+      content?: T[];
+      items?: T[];
+    };
+
+const normalizeListResponse = <T>(payload: ListApiResponse<T> | undefined | null): T[] => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const candidates = [payload.data, payload.content, payload.items];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return [];
+};
+
 export const cartaService = {
   // Tipos de Carta
   getTiposCarta: async (): Promise<TipoCartaResponse[]> => {
@@ -58,10 +83,10 @@ export const cartaService = {
 
   // Platos
   getPlatos: async (activo: boolean = true): Promise<PlatoResponse[]> => {
-    const response = await cartaApi.get<PlatoResponse[]>('/platos', {
+    const response = await cartaApi.get<ListApiResponse<PlatoResponse>>('/platos', {
       params: { activo },
     });
-    return response.data;
+    return normalizeListResponse(response.data);
   },
 
   getPlato: async (id: string): Promise<PlatoResponse> => {
@@ -94,10 +119,10 @@ export const cartaService = {
 
   // Ingredientes
   getIngredientes: async (activo: boolean = true): Promise<IngredienteResponse[]> => {
-    const response = await cartaApi.get<IngredienteResponse[]>('/ingredientes', {
+    const response = await cartaApi.get<ListApiResponse<IngredienteResponse>>('/ingredientes', {
       params: { activo },
     });
-    return response.data;
+    return normalizeListResponse(response.data);
   },
 
   getIngrediente: async (id: string): Promise<IngredienteResponse> => {
