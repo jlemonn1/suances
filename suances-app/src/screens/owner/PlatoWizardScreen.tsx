@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Loading } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
@@ -349,7 +350,7 @@ export const PlatoWizardScreen: React.FC<PlatoWizardScreenProps> = ({
                 {url}
               </Text>
               <TouchableOpacity onPress={() => removeImagen(index)}>
-                <Text style={styles.removeText}>✕</Text>
+                <Ionicons name="close-circle" size={20} color={colors.error} />
               </TouchableOpacity>
             </View>
           ))}

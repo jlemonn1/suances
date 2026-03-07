@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlatoCard, Loading, EmptyState } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
@@ -13,7 +14,7 @@ import { PlatoResponse } from '../../types/plato';
 import { TipoCartaResponse } from '../../types/carta';
 
 interface CartaPublicaScreenProps {
-  navigation: any;
+  navigation?: any;
 }
 
 export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
@@ -73,7 +74,7 @@ export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <Text style={styles.title}>Nuestra Carta</Text>
       
       {tiposCarta.length > 0 && (
@@ -115,7 +116,7 @@ export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
           />
         }
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

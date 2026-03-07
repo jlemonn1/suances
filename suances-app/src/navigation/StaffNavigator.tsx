@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
@@ -14,11 +14,14 @@ export const StaffNavigator = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let icon = '';
-          if (route.name === 'Carta') icon = '📖';
-          else if (route.name === 'Perfil') icon = '👤';
+          let iconName: keyof typeof Ionicons.glyphMap = 'home';
+          if (route.name === 'Carta') {
+            iconName = focused ? 'restaurant' : 'restaurant-outline';
+          } else if (route.name === 'Perfil') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
           
-          return <Text style={{ fontSize: size }}>{icon}</Text>;
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textSecondary,

@@ -1,58 +1,56 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { API_CONFIG } from '../config';
 
-export const personalApi: AxiosInstance = axios.create({
-  baseURL: API_CONFIG.PERSONAL_BASE_URL,
-  timeout: API_CONFIG.TIMEOUT,
-  headers: { 'Content-Type': 'application/json' },
-});
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-export const cartaApi: AxiosInstance = axios.create({
-  baseURL: API_CONFIG.CARTA_BASE_URL,
-  timeout: API_CONFIG.TIMEOUT,
-  headers: { 'Content-Type': 'application/json' },
-});
+const createApiClient = (baseURL: string): AxiosInstance =>
+  axios.create({
+    baseURL,
+    timeout: API_CONFIG.TIMEOUT,
+    headers: JSON_HEADERS,
+  });
 
-export const reservasApi: AxiosInstance = axios.create({
-  baseURL: API_CONFIG.RESERVAS_BASE_URL,
-  timeout: API_CONFIG.TIMEOUT,
-  headers: { 'Content-Type': 'application/json' },
-});
+export const personalApi = createApiClient(API_CONFIG.PERSONAL_BASE_URL);
+export const cartaApi = createApiClient(API_CONFIG.CARTA_BASE_URL);
+export const reservasApi = createApiClient(API_CONFIG.RESERVAS_BASE_URL);
+
+const apiClients: AxiosInstance[] = [personalApi, cartaApi, reservasApi];
 
 let authToken: string | null = null;
 
 export const setAuthToken = (token: string | null) => {
   authToken = token;
-  if (token) {
-    personalApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    cartaApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    reservasApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    console.log('API token set:', token.substring(0, 20) + '...');
-  } else {
-    delete personalApi.defaults.headers.common['Authorization'];
-    delete cartaApi.defaults.headers.common['Authorization'];
-    delete reservasApi.defaults.headers.common['Authorization'];
-    console.log('API token cleared');
-  }
+  apiClients.forEach((client) => {
+    if (token) {
+      client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete client.defaults.headers.common['Authorization'];
+    }
+  });
 };
 
-personalApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (authToken && config.headers) {
-    config.headers.Authorization = `Bearer ${authToken}`;
-  }
-  return config;
-});
+const attachRequestInterceptor = (client: AxiosInstance) => {
+  client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    if (authToken && config.headers) {
+      config.headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    return config;
+  });
+};
 
-cartaApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (authToken && config.headers) {
-    config.headers.Authorization = `Bearer ${authToken}`;
-  }
-  return config;
-});
+const attachResponseInterceptor = (client: AxiosInstance) => {
+  client.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError) => {
+      if (error.response?.status === 401) {
+        console.warn('Sesión expirada o token inválido. Por favor, inicia sesión de nuevo.');
+      }
+      return Promise.reject(error);
+    }
+  );
+};
 
-reservasApi.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  if (authToken && config.headers) {
-    config.headers.Authorization = `Bearer ${authToken}`;
-  }
-  return config;
+apiClients.forEach((client) => {
+  attachRequestInterceptor(client);
+  attachResponseInterceptor(client);
 });

@@ -1,16 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { ScrollView, View, Text, StyleSheet, Alert, Switch, TouchableOpacity } from 'react-native';
 import { Button, Input } from '../../../components/common';
+import { DateSelector } from '../../../components/reservas/DateSelector';
+import { ComensalesSelector } from '../../../components/reservas/ComensalesSelector';
 import { colors, spacing, typography } from '../../../theme';
 import { useReservasStore } from '../../../store/reservasStore';
 
 interface Props {
   navigation: any;
-  route: { params?: { waitlistEntry?: any } };
+  route: { params?: { waitlistEntry?: any; reservaId?: string } };
 }
 
 export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
+  const reservaId = route?.params?.reservaId;
   const waitlistEntry = route?.params?.waitlistEntry;
+  const isEditing = !!reservaId;
+  const formatHora = (hora: string) => hora?.substring(0, 5) || '';
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: isEditing ? 'Editar Reserva' : 'Nueva Reserva',
+    });
+  }, [navigation, isEditing]);
+
   const {
     franjas,
     fetchFranjas,
@@ -19,19 +31,25 @@ export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
     mesasBySala,
     fetchMesas,
     createReserva,
+    updateReserva,
+    fetchMesasOcupadas,
+    mesasOcupadas,
+    reservas,
   } = useReservasStore();
 
+  const existingReserva = isEditing ? reservas.find(r => r.id === reservaId) : null;
+
   const today = new Date().toISOString().split('T')[0];
-  const [fecha, setFecha] = useState(waitlistEntry?.fecha ?? today);
-  const [franjaId, setFranjaId] = useState(waitlistEntry?.franjaId ?? '');
+  const [fecha, setFecha] = useState(existingReserva?.fecha ?? waitlistEntry?.fecha ?? today);
+  const [franjaId, setFranjaId] = useState(existingReserva?.franjaId ?? waitlistEntry?.franjaId ?? '');
   const [salaId, setSalaId] = useState('');
-  const [mesaId, setMesaId] = useState('');
-  const [nombreCliente, setNombreCliente] = useState(waitlistEntry?.nombreCliente ?? '');
-  const [telefono, setTelefono] = useState(waitlistEntry?.telefono ?? '');
-  const [email, setEmail] = useState('');
-  const [comensales, setComensales] = useState(waitlistEntry?.comensales?.toString() ?? '2');
+  const [mesaId, setMesaId] = useState(existingReserva?.mesaId ?? '');
+  const [nombreCliente, setNombreCliente] = useState(existingReserva?.nombreCliente ?? waitlistEntry?.nombreCliente ?? '');
+  const [telefono, setTelefono] = useState(existingReserva?.telefono ?? waitlistEntry?.telefono ?? '');
+  const [comensales, setComensales] = useState(existingReserva?.comensales ?? waitlistEntry?.comensales ?? 2);
   const [force, setForce] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [initialSalaLoaded, setInitialSalaLoaded] = useState(false);
 
   useEffect(() => {
     fetchFranjas();
@@ -39,34 +57,100 @@ export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
   }, []);
 
   useEffect(() => {
+    if (isEditing && existingReserva && !initialSalaLoaded) {
+      const mesa = Object.values(mesasBySala).flat().find(m => m.id === existingReserva.mesaId);
+      if (mesa) {
+        setSalaId(mesa.salaId);
+        setInitialSalaLoaded(true);
+      } else if (salas.length > 0) {
+        fetchSalas().then(() => {
+          setInitialSalaLoaded(true);
+        });
+      }
+    }
+  }, [isEditing, existingReserva, salas, mesasBySala]);
+
+  useEffect(() => {
     if (salaId) {
       fetchMesas(salaId);
     }
   }, [salaId]);
 
+  useEffect(() => {
+    if (fecha && franjaId) {
+      fetchMesasOcupadas(fecha, franjaId);
+    }
+  }, [fecha, franjaId]);
+
+  useEffect(() => {
+    if (isEditing && existingReserva) {
+      fetchMesasOcupadas(fecha, franjaId);
+    }
+  }, [isEditing, existingReserva]);
+
   const mesas = salaId ? mesasBySala[salaId] || [] : [];
+  const mesaIdsOcupadas = mesasOcupadas?.mesaIds || [];
+  
+  const mesaActualId = isEditing ? existingReserva?.mesaId : null;
+  const mesaIdsOcupadasFiltradas = mesaIdsOcupadas.filter(id => id !== mesaActualId);
+  
+  const mesasDisponibles = mesas.filter((mesa) => !mesaIdsOcupadasFiltradas.includes(mesa.id));
+  const mesasOcupadasList = mesas.filter((mesa) => mesaIdsOcupadasFiltradas.includes(mesa.id));
+
+  const handleNombreChange = (text: string) => {
+    setNombreCliente(text.toUpperCase());
+  };
+
+  const handleTelefonoChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9+\s]/g, '');
+    setTelefono(cleaned);
+  };
 
   const handleSubmit = async () => {
-    if (!franjaId || !mesaId || !nombreCliente || !telefono) {
+    if (!franjaId || !mesaId || !nombreCliente.trim() || !telefono.trim()) {
       Alert.alert('Completa todos los campos obligatorios');
       return;
     }
+    
+    if (isEditing && !existingReserva) {
+      Alert.alert('Error', 'Los datos de la reserva no están cargados');
+      return;
+    }
+    
     setSaving(true);
     try {
-      await createReserva({
-        franjaId,
-        mesaId,
-        fecha,
-        nombreCliente,
-        telefono,
-        email,
-        comensales: parseInt(comensales, 10),
-        force,
-      });
-      Alert.alert('Reserva creada');
+      if (isEditing) {
+        const payload: any = {
+          fecha,
+          nombreCliente: nombreCliente.trim(),
+          telefono: telefono.trim(),
+          comensales,
+        };
+        
+        if (mesaId !== existingReserva?.mesaId) {
+          payload.mesaId = mesaId;
+        }
+        if (franjaId !== existingReserva?.franjaId) {
+          payload.franjaId = franjaId;
+        }
+        
+        await updateReserva(reservaId, payload);
+        Alert.alert('Reserva actualizada');
+      } else {
+        await createReserva({
+          franjaId: franjaId,
+          mesaId,
+          fecha,
+          nombreCliente: nombreCliente.trim(),
+          telefono: telefono.trim(),
+          comensales,
+          force,
+        });
+        Alert.alert('Reserva creada');
+      }
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo crear la reserva');
+      Alert.alert('Error', isEditing ? 'No se pudo actualizar la reserva' : 'No se pudo crear la reserva');
     } finally {
       setSaving(false);
     }
@@ -74,8 +158,10 @@ export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Nueva reserva manual</Text>
-      <Input label="Fecha" value={fecha} onChangeText={setFecha} placeholder="YYYY-MM-DD" />
+      <Text style={styles.title}>{isEditing ? 'Editar reserva' : 'Nueva reserva manual'}</Text>
+      
+      <DateSelector fecha={fecha} onChangeFecha={setFecha} />
+      
       <Text style={styles.label}>Franja</Text>
       <View style={styles.chipsRow}>
         {franjas.map((franja) => {
@@ -87,7 +173,7 @@ export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
               onPress={() => setFranjaId(franja.id)}
             >
               <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
-                {franja.nombre} ({franja.horaInicio}-{franja.horaFin})
+                {franja.nombre} ({formatHora(franja.horaInicio)}-{formatHora(franja.horaFin)})
               </Text>
             </TouchableOpacity>
           );
@@ -111,31 +197,101 @@ export const ReservaEditorScreen: React.FC<Props> = ({ navigation, route }) => {
       </View>
 
       <Text style={styles.label}>Mesa</Text>
-      <View style={styles.chipsRow}>
-        {mesas.map((mesa) => {
-          const active = mesaId === mesa.id;
-          return (
-            <TouchableOpacity
-              key={mesa.id}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setMesaId(mesa.id)}
-            >
-              <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
-                Mesa {mesa.numero} · {mesa.capacidad} pax
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-        {mesas.length === 0 && <Text style={styles.helpText}>Selecciona una sala para ver mesas</Text>}
-      </View>
-      <Input label="Nombre cliente" value={nombreCliente} onChangeText={setNombreCliente} />
-      <Input label="Teléfono" value={telefono} onChangeText={setTelefono} />
-      <Input label="Email" value={email} onChangeText={setEmail} />
-      <Input label="Comensales" value={comensales} onChangeText={setComensales} keyboardType="numeric" />
-      <View style={styles.switchRow}>
-        <Text style={styles.switchLabel}>Forzar asignación</Text>
-        <Switch value={force} onValueChange={setForce} />
-      </View>
+      {mesas.length === 0 ? (
+        <Text style={styles.helpText}>Selecciona una sala para ver mesas</Text>
+      ) : (
+        <>
+          {isEditing && mesaActualId && (
+            <>
+              <Text style={styles.subLabel}>Mesa actual</Text>
+              <View style={styles.chipsRow}>
+                {mesas.filter(m => m.id === mesaActualId).map((mesa) => (
+                  <TouchableOpacity
+                    key={mesa.id}
+                    style={[styles.chip, styles.chipCurrent]}
+                  >
+                    <Text style={[styles.chipLabel, styles.chipLabelCurrent]}>
+                      Mesa {mesa.numero} · {mesa.capacidad} pax
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+          
+          <Text style={styles.subLabel}>Disponibles ({mesasDisponibles.length})</Text>
+          {mesasDisponibles.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {mesasDisponibles.map((mesa) => {
+                const active = mesaId === mesa.id;
+                return (
+                  <TouchableOpacity
+                    key={mesa.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => setMesaId(mesa.id)}
+                  >
+                    <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+                      {mesa.numero} · {mesa.capacidad} pax
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={styles.helpText}>No hay mesas disponibles</Text>
+          )}
+
+          {mesasOcupadasList.length > 0 && (
+            <>
+              <Text style={styles.subLabel}>Ocupadas ({mesasOcupadasList.length})</Text>
+              <View style={styles.chipsRow}>
+                {mesasOcupadasList.map((mesa) => (
+                  <TouchableOpacity
+                    key={mesa.id}
+                    style={[styles.chip, styles.chipDisabled]}
+                    disabled
+                  >
+                    <Text style={[styles.chipLabel, styles.chipLabelDisabled]}>
+                      {mesa.numero} · {mesa.capacidad} pax
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
+        </>
+      )}
+
+      <Text style={styles.sectionTitle}>Datos del cliente</Text>
+      
+      <Input
+        label="Nombre"
+        value={nombreCliente}
+        onChangeText={handleNombreChange}
+        placeholder="NOMBRE COMPLETO"
+        autoCapitalize="characters"
+      />
+      <Input
+        label="Teléfono"
+        value={telefono}
+        onChangeText={handleTelefonoChange}
+        placeholder="+34 600 000 000"
+        keyboardType="phone-pad"
+      />
+
+      <ComensalesSelector
+        label="Comensales"
+        value={comensales}
+        onChange={setComensales}
+      />
+
+      {!isEditing && (
+        <View style={styles.switchRow}>
+          <Text style={styles.switchLabel}>Forzar asignación</Text>
+          <Switch value={force} onValueChange={setForce} />
+        </View>
+      )}
+      
       <Button title="Guardar" onPress={handleSubmit} loading={saving} />
     </ScrollView>
   );
@@ -152,10 +308,22 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
   },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
   label: {
     ...typography.body,
     color: colors.text,
     marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  subLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   chipsRow: {
@@ -175,12 +343,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
+  chipCurrent: {
+    backgroundColor: '#E8F5E9',
+    borderColor: colors.primary,
+  },
   chipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   chipLabelActive: {
     color: colors.surface,
+  },
+  chipLabelCurrent: {
+    color: '#2E7D32',
+    fontWeight: '600',
+  },
+  chipDisabled: {
+    backgroundColor: colors.border,
+    borderColor: colors.border,
+    opacity: 0.6,
+  },
+  chipLabelDisabled: {
+    color: colors.textSecondary,
   },
   helpText: {
     ...typography.caption,

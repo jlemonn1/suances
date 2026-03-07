@@ -45,10 +45,20 @@ export interface MesaRequest {
 }
 
 export interface SalaLayout {
-  ancho: number;
-  alto: number;
-  vertices: number[][];
+  ancho: number;          // Ancho en unidades (mesasAncho * TABLE_SIZE)
+  alto: number;           // Alto en unidades (mesasAlto * TABLE_SIZE)
+  vertices: number[][];   // Vértices del polígono [x, y]
+  mesasAncho: number;     // Número de mesas en ancho (1-20)
+  mesasAlto: number;      // Número de mesas en alto (1-20)
+  cellSize: number;       // Tamaño de celda (TABLE_SIZE / 4 = 20)
 }
+
+// Constantes para el sistema de grid
+export const TABLE_SIZE = 80;           // Tamaño de una mesa en unidades
+export const CELLS_PER_TABLE = 4;       // Celdas por mesa (2x2)
+export const CELL_SIZE = TABLE_SIZE / CELLS_PER_TABLE; // 20 unidades
+export const MAX_TABLES = 20;           // Máximo de mesas por dimensión
+export const DEFAULT_TABLE_CAPACITY = 4; // Capacidad por defecto de mesa nueva
 
 export interface Sala {
   id: string;
@@ -80,6 +90,7 @@ export interface Reserva {
   nombreCliente: string;
   telefono: string;
   email?: string | null;
+  observaciones?: string | null;
 }
 
 export interface ReservaRequest {

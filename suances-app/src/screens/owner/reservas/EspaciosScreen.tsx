@@ -1,40 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, ScrollView, Alert } from 'react-native';
-import { Button, EmptyState, Input, Loading } from '../../../components/common';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { EmptyState, Loading } from '../../../components/common';
 import { SalaCard } from '../../../components/reservas';
 import { useReservasStore } from '../../../store/reservasStore';
 import { colors, spacing, typography } from '../../../theme';
+import { Sala } from '../../../types/reservas';
 
 interface Props {
   navigation: any;
 }
 
 export const EspaciosScreen: React.FC<Props> = ({ navigation }) => {
-  const { salas, fetchSalas, saveSala, mesasBySala, loading } = useReservasStore();
-  const [formVisible, setFormVisible] = useState(false);
-  const [nombre, setNombre] = useState('');
-  const [capacidad, setCapacidad] = useState('');
+  const { salas, fetchSalas, mesasBySala, loading } = useReservasStore();
 
   useEffect(() => {
     fetchSalas();
   }, []);
 
-  const handleSubmit = async () => {
-    if (!nombre.trim()) {
-      Alert.alert('Nombre requerido');
-      return;
-    }
-    await saveSala({ nombre, capacidadMaxima: capacidad ? parseInt(capacidad, 10) : undefined });
-    setNombre('');
-    setCapacidad('');
-    setFormVisible(false);
+  const handleNuevaSala = () => {
+    navigation.navigate('SalaEditor');
+  };
+
+  const handleEditarSala = (sala: Sala) => {
+    navigation.navigate('SalaEditor', { salaId: sala.id });
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Salas & Mesas</Text>
-        <Button title="Nueva sala" onPress={() => setFormVisible(true)} size="small" />
+        <TouchableOpacity style={styles.addButton} onPress={handleNuevaSala}>
+          <Ionicons name="add" size={24} color={colors.surface} />
+        </TouchableOpacity>
       </View>
 
       {loading.salas && salas.length === 0 ? (
@@ -44,7 +42,7 @@ export const EspaciosScreen: React.FC<Props> = ({ navigation }) => {
           title="No hay salas configuradas"
           message="Crea tu primera sala para comenzar"
           actionLabel="Crear sala"
-          onAction={() => setFormVisible(true)}
+          onAction={handleNuevaSala}
         />
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
@@ -58,29 +56,13 @@ export const EspaciosScreen: React.FC<Props> = ({ navigation }) => {
                 totalMesas={mesas.length}
                 mesasVisibles={visibles}
                 capacidad={mesas.reduce((sum, mesa) => sum + mesa.capacidad, 0)}
-                onPress={() => navigation.navigate('SalaDetail', { salaId: sala.id })}
+                onPress={() => handleEditarSala(sala)}
+                onDetailPress={() => navigation.navigate('SalaDetail', { salaId: sala.id })}
               />
             );
           })}
         </ScrollView>
       )}
-
-      <Modal visible={formVisible} animationType="slide" onRequestClose={() => setFormVisible(false)}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Nueva sala</Text>
-          <Input label="Nombre" value={nombre} onChangeText={setNombre} />
-          <Input
-            label="Capacidad"
-            value={capacidad}
-            onChangeText={setCapacidad}
-            keyboardType="numeric"
-          />
-          <View style={styles.modalActions}>
-            <Button title="Cancelar" variant="outline" onPress={() => setFormVisible(false)} />
-            <Button title="Guardar" onPress={handleSubmit} />
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -101,23 +83,15 @@ const styles = StyleSheet.create({
     ...typography.h1,
     color: colors.text,
   },
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   list: {
     paddingBottom: spacing.xl,
-  },
-  modalContent: {
-    flex: 1,
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-    gap: spacing.md,
-  },
-  modalTitle: {
-    ...typography.h2,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
   },
 });

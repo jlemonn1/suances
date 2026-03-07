@@ -17,6 +17,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -27,6 +28,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   style,
+  textStyle,
 }) => {
   const buttonStyles = [
     styles.base,
@@ -41,6 +43,7 @@ export const Button: React.FC<ButtonProps> = ({
     styles[`text_${variant}`],
     styles[`text_${size}`],
     disabled && styles.textDisabled,
+    textStyle,
   ];
 
   return (

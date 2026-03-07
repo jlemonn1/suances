@@ -9,6 +9,7 @@ import {
   Modal,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Card, Loading, EmptyState } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
@@ -124,14 +125,20 @@ export const DistribuidoresScreen: React.FC<{ navigation: any }> = ({ navigation
         <View>
           <Text style={styles.nombre}>{item.nombre}</Text>
           {item.telefono && (
-            <Text style={styles.info}>📞 {item.telefono}</Text>
+            <View style={styles.infoRow}>
+              <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.info}> {item.telefono}</Text>
+            </View>
           )}
           {item.email && (
-            <Text style={styles.info}>✉️ {item.email}</Text>
+            <View style={styles.infoRow}>
+              <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.info}> {item.email}</Text>
+            </View>
           )}
         </View>
         <TouchableOpacity onPress={() => handleDelete(item)}>
-          <Text style={styles.deleteButton}>🗑</Text>
+          <Ionicons name="trash-outline" size={20} color={colors.error} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Card>

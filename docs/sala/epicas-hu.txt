@@ -1,0 +1,308 @@
+Perfecto. Aquí tienes las **épicas y las historias de usuario del micro de Sala**, descritas de forma funcional (sin detalles técnicos), centrándose únicamente en **lo que el sistema permite hacer y cómo lo usa el personal del restaurante**.
+
+---
+
+# Épica 1: Visualización del estado de la sala
+
+## Historia de usuario 1.1 – Ver el estado general de la sala
+
+Como usuario del sistema,
+quiero poder ver el estado general de todas las mesas de una sala,
+para conocer rápidamente qué mesas están libres, reservadas o en uso.
+
+La pantalla de sala mostrará todas las mesas con un color que indique su estado actual.
+
+Estados posibles de una mesa:
+
+* **Verde** → mesa libre
+* **Azul** → mesa reservada
+* **Amarillo** → mesa con comanda activa
+* **Rojo** → ticket generado pendiente de pago
+
+Esta vista debe permitir al personal del restaurante **entender de un vistazo la situación de la sala**.
+
+---
+
+## Historia de usuario 1.2 – Ver el estado de la sala para la franja actual
+
+Como usuario del sistema,
+quiero que el estado de las mesas tenga en cuenta únicamente la franja horaria actual,
+para que la información que veo sea relevante para el servicio que está en curso.
+
+Por ejemplo:
+
+* durante el servicio de comida se muestran solo las reservas de comida
+* durante el servicio de cena se muestran solo las reservas de cena
+
+---
+
+## Historia de usuario 1.3 – Actualización automática del estado de las mesas
+
+Como usuario del sistema,
+quiero que el estado de las mesas se actualice automáticamente cuando cambien las reservas o las comandas,
+para que la información de la sala esté siempre actualizada.
+
+Cuando ocurre alguna acción relevante, la vista de sala se actualiza automáticamente.
+
+Ejemplos:
+
+* nueva reserva
+* cancelación de reserva
+* creación de comanda
+* generación de ticket
+* pago de ticket
+
+---
+
+# Épica 2: Creación y gestión de comandas
+
+## Historia de usuario 2.1 – Crear una comanda para una mesa
+
+Como camarero,
+quiero poder crear una comanda para una mesa,
+para empezar a registrar los pedidos de los clientes.
+
+Cuando se crea una comanda:
+
+* la mesa pasa a estado **ocupado**
+* se comienza a registrar el pedido de los clientes
+
+Si la mesa no tenía reserva previa, el sistema registra automáticamente que la mesa está siendo utilizada en esa franja.
+
+---
+
+## Historia de usuario 2.2 – Añadir platos a una comanda
+
+Como camarero,
+quiero poder añadir platos a una comanda,
+para registrar los pedidos de los clientes.
+
+Al añadir platos se indicará:
+
+* el plato solicitado
+* la cantidad
+* el grupo al que pertenece el plato
+
+Los grupos disponibles son:
+
+* **Entrantes**
+* **Primeros**
+* **Segundos**
+
+Esto permite organizar el servicio de cocina correctamente.
+
+---
+
+## Historia de usuario 2.3 – Modificar una comanda antes de enviarla a cocina
+
+Como camarero,
+quiero poder modificar una comanda antes de enviarla a cocina,
+para corregir errores o ajustar el pedido del cliente.
+
+Mientras los platos no se hayan enviado a cocina, se pueden:
+
+* añadir platos
+* modificar cantidades
+* eliminar platos
+
+---
+
+# Épica 3: Envío de platos a cocina
+
+## Historia de usuario 3.1 – Enviar platos a cocina por grupos
+
+Como camarero,
+quiero poder enviar los platos a cocina por grupos,
+para que los platos se preparen en el orden adecuado.
+
+Los grupos se envían normalmente en este orden:
+
+1. Entrantes
+2. Primeros
+3. Segundos
+
+Si un grupo no existe en la comanda, se puede enviar directamente el siguiente.
+
+---
+
+## Historia de usuario 3.2 – Imprimir pedido en cocina
+
+Como restaurante,
+quiero que cuando se envíen platos a cocina se genere un ticket de cocina,
+para que el personal de cocina pueda ver qué debe preparar.
+
+El ticket mostrará:
+
+* número de mesa
+* hora
+* platos enviados
+* cantidades
+
+---
+
+## Historia de usuario 3.3 – Descontar ingredientes cuando se envía un plato a cocina
+
+Como sistema de gestión del restaurante,
+quiero que cuando un plato se envíe a cocina se descuenten automáticamente sus ingredientes del inventario,
+para mantener actualizado el control de stock.
+
+---
+
+# Épica 4: Modificación de comandas en curso
+
+## Historia de usuario 4.1 – Añadir nuevos platos a una comanda ya enviada
+
+Como camarero,
+quiero poder añadir nuevos platos a una comanda ya iniciada,
+para registrar pedidos adicionales de los clientes.
+
+Estos nuevos platos se enviarán a cocina cuando el camarero lo decida.
+
+---
+
+## Historia de usuario 4.2 – Modificar comandas enviadas a cocina
+
+Como gerente o propietario,
+quiero poder modificar una comanda ya enviada a cocina,
+para poder corregir errores o resolver incidencias.
+
+Las acciones posibles son:
+
+* modificar cantidades
+* eliminar platos
+* cancelar líneas de pedido
+
+Estas acciones **no están disponibles para camareros**.
+
+---
+
+# Épica 5: Generación de ticket
+
+## Historia de usuario 5.1 – Generar el ticket de una mesa
+
+Como camarero,
+quiero poder generar el ticket de una mesa,
+para mostrar al cliente el importe total a pagar.
+
+El ticket incluirá todos los platos registrados en la comanda.
+
+Cuando se genera el ticket:
+
+* la mesa pasa a estado **pendiente de pago**
+
+---
+
+## Historia de usuario 5.2 – Consultar el importe total
+
+Como camarero,
+quiero poder ver el importe total del ticket,
+para poder informar al cliente del coste de su consumo.
+
+---
+
+# Épica 6: Cobro de tickets
+
+## Historia de usuario 6.1 – Registrar el pago de un ticket
+
+Como camarero,
+quiero registrar el pago de un ticket,
+para cerrar la cuenta de la mesa.
+
+El sistema permitirá registrar el tipo de pago.
+
+---
+
+## Historia de usuario 6.2 – Registrar pago con tarjeta
+
+Como camarero,
+quiero registrar que el cliente ha pagado con tarjeta,
+para reflejar correctamente la forma de pago.
+
+---
+
+## Historia de usuario 6.3 – Registrar pago en efectivo
+
+Como camarero,
+quiero registrar el pago en efectivo,
+para reflejar correctamente el cobro.
+
+En este caso el sistema permitirá indicar:
+
+* dinero entregado por el cliente
+* cambio devuelto
+
+---
+
+## Historia de usuario 6.4 – Liberar mesa tras el pago
+
+Como sistema,
+quiero que cuando un ticket se paga la mesa vuelva a estar disponible,
+para que pueda ser utilizada por nuevos clientes.
+
+La mesa vuelve al estado **libre**.
+
+---
+
+# Épica 7: Historial de acciones
+
+## Historia de usuario 7.1 – Registrar acciones realizadas en una comanda
+
+Como sistema,
+quiero registrar todas las acciones realizadas sobre una comanda,
+para poder consultar el historial de lo ocurrido durante el servicio.
+
+Ejemplos de acciones registradas:
+
+* creación de comanda
+* añadido de platos
+* envío de platos a cocina
+* cancelación de platos
+* generación de ticket
+* pago del ticket
+
+---
+
+## Historia de usuario 7.2 – Saber quién realizó cada acción
+
+Como propietario o gerente,
+quiero poder saber qué usuario realizó cada acción en una comanda,
+para tener control y trazabilidad del servicio.
+
+---
+
+# Épica 8: Sincronización con reservas
+
+## Historia de usuario 8.1 – Reflejar reservas en el estado de la sala
+
+Como sistema,
+quiero que las reservas realizadas aparezcan en el estado de las mesas,
+para que el personal de sala sepa qué mesas están reservadas.
+
+Las mesas reservadas se mostrarán con color **azul**.
+
+---
+
+## Historia de usuario 8.2 – Actualizar estado de mesa cuando cambia una reserva
+
+Como sistema,
+quiero que si una reserva se modifica o se cancela el estado de la mesa se actualice automáticamente,
+para mantener la sala sincronizada con las reservas.
+
+---
+
+# Épica 9: Funcionamiento en tiempo real
+
+## Historia de usuario 9.1 – Sincronización entre dispositivos
+
+Como restaurante,
+quiero que todos los dispositivos que usan el sistema vean los cambios en tiempo real,
+para que todos trabajen con la misma información.
+
+Por ejemplo:
+
+* tablets de camareros
+* pantalla de sala
+* terminal de caja
+
+Cuando ocurre una acción relevante, los cambios se reflejan automáticamente en todos los dispositivos.
+

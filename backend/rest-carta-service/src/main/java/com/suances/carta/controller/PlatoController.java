@@ -3,12 +3,16 @@ package com.suances.carta.controller;
 import com.suances.carta.dto.request.PlatoRequest;
 import com.suances.carta.dto.request.PlatoImagenRequest;
 import com.suances.carta.dto.response.PlatoResponse;
+import com.suances.carta.event.SseEmitterManager;
 import com.suances.carta.service.PlatoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -17,9 +21,16 @@ import java.util.UUID;
 public class PlatoController {
 
     private final PlatoService platoService;
+    private final SseEmitterManager sseEmitterManager;
 
-    public PlatoController(PlatoService platoService) {
+    public PlatoController(PlatoService platoService, SseEmitterManager sseEmitterManager) {
         this.platoService = platoService;
+        this.sseEmitterManager = sseEmitterManager;
+    }
+
+    @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<SseEmitter> events() {
+        return ResponseEntity.ok(sseEmitterManager.addEmitter());
     }
 
     @PostMapping

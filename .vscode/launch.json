@@ -2,16 +2,6 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Spring Boot-CartaApplication<carta-service>",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "mainClass": "com.suances.carta.CartaApplication",
-            "projectName": "carta-service",
-            "args": "",
-            "envFile": "${workspaceFolder}/.env"
-        },
-        {
-            "type": "java",
             "name": "Spring Boot-PersonnelApplication<personnel-service>",
             "request": "launch",
             "cwd": "${workspaceFolder}",
@@ -22,21 +12,31 @@
         },
         {
             "type": "java",
-            "name": "Spring Boot-CartaApplication<carta-service (2)>",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "mainClass": "com.suances.carta.CartaApplication",
-            "projectName": "carta-service (2)",
-            "args": "",
-            "envFile": "${workspaceFolder}/.env"
-        },
-        {
-            "type": "java",
             "name": "Spring Boot-ReservaServiceApplication<reservas-service>",
             "request": "launch",
             "cwd": "${workspaceFolder}",
             "mainClass": "com.suances.reservas.ReservaServiceApplication",
             "projectName": "reservas-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-CartaApplication<carta-service>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.carta.CartaApplication",
+            "projectName": "carta-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-CartaApplication<carta-service (2)>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.carta.CartaApplication",
+            "projectName": "carta-service (2)",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
         }

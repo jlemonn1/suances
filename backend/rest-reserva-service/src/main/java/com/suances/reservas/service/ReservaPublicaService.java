@@ -68,7 +68,7 @@ public class ReservaPublicaService {
         reserva.setEmail(request.email());
         reserva.setNotas(request.preferencias());
         reserva.setOrigen(ReservaOrigen.ONLINE);
-        reserva.setEstado(ReservaEstado.PENDIENTE);
+        reserva.setEstado(ReservaEstado.CONFIRMADA);
         reserva.setCodigo("RSV-" + UUID.randomUUID().toString().substring(0, 5).toUpperCase());
 
         Reserva guardada = reservaRepository.save(reserva);

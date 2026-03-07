@@ -8,6 +8,7 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Loading } from '../../components/common';
 import { EscandalloResumen } from '../../components/carta/EscandalloResumen';
 import { colors, spacing, typography } from '../../theme';
@@ -138,6 +139,30 @@ export const PlatoDetailScreen: React.FC<PlatoDetailScreenProps> = ({
         </View>
       </View>
 
+      <View style={styles.actionsRow}>
+        <View style={styles.iconButtonsGroup}>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('PlatoWizard', { plato })}
+          >
+            <Ionicons name="create-outline" size={20} color={colors.accent} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.iconButton, styles.deleteButton]}
+            onPress={handleDelete}
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={styles.escandalloButton}
+          onPress={() => navigation.navigate('Escandallos', { platoId, platoNombre: plato.nombre })}
+        >
+          <Ionicons name="list-outline" size={18} color={colors.accent} />
+          <Text style={styles.escandalloButtonText}>Escandallo</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.sectionTitle}>Imágenes</Text>
       {plato.imagenes.length === 0 ? (
         <Text style={styles.emptyText}>Sin imágenes</Text>
@@ -159,26 +184,7 @@ export const PlatoDetailScreen: React.FC<PlatoDetailScreenProps> = ({
         <EscandalloResumen escandallo={escandallo} />
       )}
 
-      <View style={styles.actions}>
-        <Button
-          title="Editar Plato"
-          onPress={() => navigation.navigate('PlatoWizard', { plato })}
-          style={styles.actionButton}
-        />
-          <Button
-          title="Ver/Editar Escandallo"
-          onPress={() => navigation.navigate('Escandallos', { platoId, platoNombre: plato.nombre })}
-          variant="secondary"
-          style={styles.actionButton}
-        />
-        <Button
-          title="Eliminar Plato"
-          onPress={handleDelete}
-          variant="danger"
-          loading={deleting}
-          style={styles.actionButton}
-        />
-      </View>
+
     </ScrollView>
   );
 };
@@ -235,6 +241,47 @@ const styles = StyleSheet.create({
   inactive: {
     color: colors.textSecondary,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  iconButtonsGroup: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  escandalloButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.accent + '40',
+    gap: spacing.xs,
+  },
+  escandalloButtonText: {
+    ...typography.caption,
+    color: colors.accent,
+    fontWeight: '600',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.accent + '30',
+  },
+  deleteButton: {
+    backgroundColor: colors.error + '15',
+    borderColor: colors.error + '30',
+  },
   sectionTitle: {
     ...typography.h3,
     color: colors.text,
@@ -274,11 +321,5 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.border,
   },
-  actions: {
-    marginTop: spacing.xl,
-    gap: spacing.md,
-  },
-  actionButton: {
-    marginBottom: spacing.sm,
-  },
+
 });

@@ -1,14 +1,20 @@
 package com.suances.reservas.controller;
 
 import com.suances.reservas.domain.model.enums.ReservaEstado;
+import com.suances.reservas.dto.MesasOcupadasResponse;
 import com.suances.reservas.dto.ReservaRequest;
 import com.suances.reservas.dto.ReservaResponse;
+import com.suances.reservas.dto.UpdateReservaRequest;
+import com.suances.reservas.event.SseEmitterManager;
 import com.suances.reservas.service.ReservaService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,9 +25,11 @@ import java.util.UUID;
 public class ReservaController {
 
     private final ReservaService reservaService;
+    private final SseEmitterManager sseEmitterManager;
 
-    public ReservaController(ReservaService reservaService) {
+    public ReservaController(ReservaService reservaService, SseEmitterManager sseEmitterManager) {
         this.reservaService = reservaService;
+        this.sseEmitterManager = sseEmitterManager;
     }
 
     @GetMapping
@@ -30,6 +38,19 @@ public class ReservaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam(required = false) ReservaEstado estado) {
         return reservaService.listar(fecha, estado);
+    }
+
+    @GetMapping("/mesas-ocupadas")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public MesasOcupadasResponse getMesasOcupadas(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam UUID franjaId) {
+        return new MesasOcupadasResponse(reservaService.getMesasOcupadas(fecha, franjaId));
+    }
+
+    @GetMapping(value = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public ResponseEntity<SseEmitter> events() {
+        return ResponseEntity.ok(sseEmitterManager.addEmitter());
     }
 
     @PostMapping
@@ -43,5 +64,11 @@ public class ReservaController {
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
     public ReservaResponse cancelar(@PathVariable UUID id, @RequestParam(required = false) String motivo) {
         return reservaService.cancelar(id, motivo);
+    }
+
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ReservaResponse actualizar(@PathVariable UUID id, @Valid @RequestBody UpdateReservaRequest request) {
+        return reservaService.actualizarReserva(id, request);
     }
 }

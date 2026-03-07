@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { PlatoResponse } from '../../types/plato';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { Card } from '../common/Card';
@@ -24,7 +25,7 @@ export const PlatoCard: React.FC<PlatoCardProps> = ({
           <Image source={{ uri: imageUrl }} style={styles.image} />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>🍽</Text>
+            <Ionicons name="restaurant" size={32} color={colors.textSecondary} />
           </View>
         )}
         <View style={styles.content}>
@@ -42,7 +43,10 @@ export const PlatoCard: React.FC<PlatoCardProps> = ({
           <View style={styles.footer}>
             <Text style={styles.precio}>{plato.precioVenta.toFixed(2)}€</Text>
             {showDetails && (
-              <Text style={styles.contador}>📊 {plato.contadorPedidos}</Text>
+              <View style={styles.contadorContainer}>
+                <Ionicons name="stats-chart" size={14} color={colors.textSecondary} />
+                <Text style={styles.contador}> {plato.contadorPedidos}</Text>
+              </View>
             )}
           </View>
         </View>

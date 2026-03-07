@@ -5,7 +5,7 @@ import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
 
 interface PerfilScreenProps {
-  navigation: any;
+  navigation?: any;
 }
 
 export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {

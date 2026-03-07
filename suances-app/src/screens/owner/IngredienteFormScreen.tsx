@@ -12,13 +12,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Button, Input, Loading } from '../../components/common';
+import { Button, Input, Loading, UnitConverter, ConverterButton } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
 import { IngredienteRequest, IngredienteResponse, CategoriaResponse, CategoriaTipo } from '../../types/ingrediente';
 import { UnidadMedida } from '../../types/plato';
 import { useIngredienteStore } from '../../store/ingredienteStore';
 import { useCategoriaStore } from '../../store/categoriaStore';
+import { UnitConverterService } from '../../services/unitConverter';
 
 interface IngredienteFormScreenProps {
   navigation: any;
@@ -55,6 +56,11 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
   const [showCategoriaModal, setShowCategoriaModal] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState('');
   const [loadingCategoria, setLoadingCategoria] = useState(false);
+
+  // Estados para el conversor de unidades
+  const [showUnitConverter, setShowUnitConverter] = useState(false);
+  const [converterTipo, setConverterTipo] = useState<'peso' | 'volumen' | 'unidad'>('peso');
+  const [converterTarget, setConverterTarget] = useState<'stock' | 'precio'>('stock');
 
   useEffect(() => {
     fetchCategorias(true, 'INGREDIENTE');
@@ -114,9 +120,9 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
 
     setLoadingCategoria(true);
     try {
-      const created = await cartaService.crearCategoria({ 
-        nombre: nuevaCategoria.trim(), 
-        tipo: 'INGREDIENTE' as CategoriaTipo 
+      const created = await cartaService.crearCategoria({
+        nombre: nuevaCategoria.trim(),
+        tipo: 'INGREDIENTE' as CategoriaTipo
       });
       await fetchCategorias(true, 'INGREDIENTE');
       setCategoriaSeleccionada(created);
@@ -130,6 +136,28 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
       }
     } finally {
       setLoadingCategoria(false);
+    }
+  };
+
+  const openUnitConverter = (target: 'stock' | 'precio') => {
+    let tipo: 'peso' | 'volumen' | 'unidad' = 'peso';
+    if (unidadMedida === 'GRAMO') {
+      tipo = 'peso';
+    } else if (unidadMedida === 'ML') {
+      tipo = 'volumen';
+    } else {
+      tipo = 'unidad';
+    }
+    setConverterTipo(tipo);
+    setConverterTarget(target);
+    setShowUnitConverter(true);
+  };
+
+  const handleConversionComplete = (cantidadBase: number, precioBase: number) => {
+    if (converterTarget === 'stock') {
+      setStockActual(cantidadBase.toString());
+    } else if (converterTarget === 'precio' && precioBase > 0) {
+      setPrecioPorUnidad(precioBase.toFixed(4));
     }
   };
 
@@ -167,24 +195,48 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
         ))}
       </View>
 
-      <Input
-        label="Precio por unidad (€)"
-        value={precioPorUnidad}
-        onChangeText={setPrecioPorUnidad}
-        placeholder="0.00"
-        keyboardType="decimal-pad"
-        error={errors.precio}
-      />
+      <View style={styles.inputWithHelper}>
+        <View style={styles.inputWrapper}>
+          <Input
+            label="Precio por unidad (€)"
+            value={precioPorUnidad}
+            onChangeText={setPrecioPorUnidad}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+            error={errors.precio}
+          />
+        </View>
+        {unidadMedida !== 'UNIDAD' && (
+          <ConverterButton onPress={() => openUnitConverter('precio')} />
+        )}
+      </View>
+      {unidadMedida !== 'UNIDAD' && (
+        <Text style={styles.helperHint}>
+          Pulsa ⚡ para convertir desde {unidadMedida === 'GRAMO' ? 'kg/€' : 'L/€'}
+        </Text>
+      )}
 
       <View style={styles.row}>
         <View style={styles.halfInput}>
-          <Input
-            label="Stock inicial"
-            value={stockActual}
-            onChangeText={setStockActual}
-            placeholder="0"
-            keyboardType="decimal-pad"
-          />
+          <View style={styles.inputWithHelper}>
+            <View style={styles.inputWrapper}>
+              <Input
+                label="Stock inicial"
+                value={stockActual}
+                onChangeText={setStockActual}
+                placeholder="0"
+                keyboardType="decimal-pad"
+              />
+            </View>
+            {unidadMedida !== 'UNIDAD' && (
+              <ConverterButton onPress={() => openUnitConverter('stock')} />
+            )}
+          </View>
+          {unidadMedida !== 'UNIDAD' && (
+            <Text style={styles.helperHintSmall}>
+              ⚡ convertir desde {unidadMedida === 'GRAMO' ? 'kg' : 'L'}
+            </Text>
+          )}
         </View>
         <View style={styles.halfInput}>
           <Input
@@ -233,6 +285,15 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
         onPress={handleSave}
         loading={loading}
         style={styles.saveButton}
+      />
+
+      <UnitConverter
+        visible={showUnitConverter}
+        onClose={() => setShowUnitConverter(false)}
+        tipo={converterTipo}
+        onConversionComplete={handleConversionComplete}
+        titulo={converterTarget === 'stock' ? 'Convertir cantidad' : 'Convertir precio'}
+        showPrecio={converterTarget !== 'stock'}
       />
 
       <Modal
@@ -461,5 +522,25 @@ const styles = StyleSheet.create({
   },
   closeModalButton: {
     marginTop: spacing.md,
+  },
+  inputWithHelper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  inputWrapper: {
+    flex: 1,
+  },
+  helperHint: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  helperHintSmall: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontSize: 11,
   },
 });

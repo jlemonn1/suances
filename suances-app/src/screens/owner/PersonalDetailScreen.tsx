@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Loading } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { PersonnelResponse } from '../../types/personal';
@@ -192,7 +193,7 @@ export const PersonalDetailScreen: React.FC<PersonalDetailScreenProps> = ({
                     {role.label}
                   </Text>
                   {personnel.role === role.value && (
-                    <Text style={styles.roleCheck}>✓</Text>
+                    <Ionicons name="checkmark" size={16} color={colors.surface} />
                   )}
                 </TouchableOpacity>
               ))}

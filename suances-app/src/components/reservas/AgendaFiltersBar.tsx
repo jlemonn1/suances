@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Input } from '../common';
 import { colors, spacing, typography } from '../../theme';
 import { FranjaHoraria } from '../../types/reservas';
 
@@ -21,16 +20,12 @@ export const AgendaFiltersBar: React.FC<Props> = ({
   onSelectFranja,
   onRefresh,
 }) => {
+  const formatHora = (hora: string): string => {
+    return hora.substring(0, 5);
+  };
+
   return (
     <View style={styles.container}>
-      <Input
-        label="Fecha"
-        placeholder="YYYY-MM-DD"
-        value={fecha}
-        onChangeText={onChangeFecha}
-        keyboardType="numbers-and-punctuation"
-      />
-
       <View style={styles.franjasHeader}>
         <Text style={styles.sectionTitle}>Franjas</Text>
         {onRefresh && (
@@ -49,6 +44,8 @@ export const AgendaFiltersBar: React.FC<Props> = ({
         </TouchableOpacity>
         {franjas.map((franja) => {
           const active = selectedFranjaId === franja.id;
+          const horaInicio = formatHora(franja.horaInicio);
+          const horaFin = formatHora(franja.horaFin);
           return (
             <TouchableOpacity
               key={franja.id}
@@ -56,7 +53,7 @@ export const AgendaFiltersBar: React.FC<Props> = ({
               onPress={() => onSelectFranja(franja.id)}
             >
               <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
-                {franja.nombre} {franja.horaInicio}-{franja.horaFin}
+                {franja.nombre} {horaInicio}-{horaFin}
               </Text>
             </TouchableOpacity>
           );

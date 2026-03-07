@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, Button } from '../common';
 import { colors, spacing, typography } from '../../theme';
 import { Reserva } from '../../types/reservas';
@@ -8,7 +9,6 @@ import { ReservationStatusPill } from './ReservationStatusPill';
 interface Props {
   reserva: Reserva;
   mesaLabel?: string;
-  franjaLabel?: string;
   onPress?: () => void;
   onCancel?: (reserva: Reserva) => void;
   disabled?: boolean;
@@ -17,7 +17,6 @@ interface Props {
 export const ReservationCard: React.FC<Props> = ({
   reserva,
   mesaLabel,
-  franjaLabel,
   onPress,
   onCancel,
   disabled,
@@ -31,14 +30,25 @@ export const ReservationCard: React.FC<Props> = ({
         <ReservationStatusPill estado={reserva.estado} />
       </View>
       <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>📅 {reserva.fecha}</Text>
-        {franjaLabel && <Text style={styles.metaLabel}>⏱ {franjaLabel}</Text>}
+        <View style={styles.metaLeft}>
+          {mesaLabel && (
+            <View style={styles.metaItem}>
+              <Ionicons name="restaurant-outline" size={14} color={colors.textSecondary} />
+              <Text style={styles.metaLabel}> {mesaLabel}</Text>
+            </View>
+          )}
+          <View style={styles.metaItem}>
+            <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
+            <Text style={styles.metaLabel}> {reserva.comensales}</Text>
+          </View>
+        </View>
+        <View style={styles.metaRight}>
+          <View style={styles.metaItem}>
+            <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
+            <Text style={styles.metaLabel}> {reserva.telefono}</Text>
+          </View>
+        </View>
       </View>
-      <View style={styles.metaRow}>
-        {mesaLabel && <Text style={styles.metaLabel}>🪑 {mesaLabel}</Text>}
-        <Text style={styles.metaLabel}>👥 {reserva.comensales}</Text>
-      </View>
-      <Text style={styles.metaLabel}>📞 {reserva.telefono}</Text>
 
       {canCancel && onCancel && (
         <View style={styles.actions}>
@@ -76,9 +86,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.xs,
   },
+  metaLeft: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  metaRight: {
+    alignItems: 'flex-end',
+  },
   metaLabel: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   actions: {
     marginTop: spacing.sm,

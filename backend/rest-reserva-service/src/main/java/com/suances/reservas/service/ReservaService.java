@@ -6,15 +6,20 @@ import com.suances.reservas.domain.model.Reserva;
 import com.suances.reservas.domain.model.enums.BloqueoTipo;
 import com.suances.reservas.domain.model.enums.ReservaEstado;
 import com.suances.reservas.domain.model.enums.ReservaOrigen;
+import com.suances.reservas.dto.MesasOcupadasResponse;
 import com.suances.reservas.dto.ReservaRequest;
 import com.suances.reservas.dto.ReservaResponse;
+import com.suances.reservas.dto.UpdateReservaRequest;
 import com.suances.reservas.event.ReservaEventProducer;
+import com.suances.reservas.event.SseEmitterManager;
 import com.suances.reservas.exception.BusinessRuleException;
 import com.suances.reservas.exception.ResourceNotFoundException;
 import com.suances.reservas.repository.BloqueoRepository;
 import com.suances.reservas.repository.FranjaRepository;
 import com.suances.reservas.repository.MesaRepository;
 import com.suances.reservas.repository.ReservaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,10 +28,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ReservaService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ReservaService.class);
     private static final String CODIGO_PREFIX = "RSV-";
 
     private final MesaRepository mesaRepository;
@@ -34,18 +41,21 @@ public class ReservaService {
     private final ReservaRepository reservaRepository;
     private final BloqueoRepository bloqueoRepository;
     private final ReservaEventProducer eventProducer;
+    private final SseEmitterManager sseEmitterManager;
     private final SecureRandom random = new SecureRandom();
 
     public ReservaService(MesaRepository mesaRepository,
                           FranjaRepository franjaRepository,
                           ReservaRepository reservaRepository,
                           BloqueoRepository bloqueoRepository,
-                          ReservaEventProducer eventProducer) {
+                          ReservaEventProducer eventProducer,
+                          SseEmitterManager sseEmitterManager) {
         this.mesaRepository = mesaRepository;
         this.franjaRepository = franjaRepository;
         this.reservaRepository = reservaRepository;
         this.bloqueoRepository = bloqueoRepository;
         this.eventProducer = eventProducer;
+        this.sseEmitterManager = sseEmitterManager;
     }
 
     @Transactional
@@ -72,8 +82,13 @@ public class ReservaService {
         reserva.setCodigo(generarCodigo());
 
         Reserva guardada = reservaRepository.save(reserva);
-        eventProducer.publish("reserva.created", map(guardada));
-        return map(guardada);
+        ReservaResponse response = map(guardada);
+        logger.info("[RESERVA] Creando reserva - id: {}, codigo: {}, mesa: {}, fecha: {}, franja: {}", 
+            response.id(), response.codigo(), response.mesaId(), response.fecha(), response.franjaId());
+        eventProducer.publish("reserva.created", response);
+        sseEmitterManager.broadcast("reserva.created", response);
+        logger.info("[RESERVA] Evento publicado: reserva.created para reserva {}", response.codigo());
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -91,8 +106,96 @@ public class ReservaService {
         reserva.setEstado(ReservaEstado.CANCELADA);
         reserva.setNotas(motivo);
         ReservaResponse response = map(reserva);
+        logger.info("[RESERVA] Cancelando reserva - id: {}, codigo: {}, motivo: {}", 
+            response.id(), response.codigo(), motivo);
         eventProducer.publish("reserva.cancelled", response);
+        sseEmitterManager.broadcast("reserva.cancelled", response);
+        logger.info("[RESERVA] Evento publicado: reserva.cancelled para reserva {}", response.codigo());
         return response;
+    }
+
+    @Transactional
+    public ReservaResponse actualizarReserva(UUID id, UpdateReservaRequest request) {
+        Reserva reserva = reservaRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva no encontrada"));
+
+        Mesa mesaAnterior = reserva.getMesa();
+        UUID franjaAnteriorId = reserva.getFranja().getId();
+        LocalDate fechaAnterior = reserva.getFecha();
+        Short comensalesAnterior = reserva.getComensales();
+
+        boolean mesaCambio = request.mesaId() != null && !request.mesaId().equals(reserva.getMesa().getId());
+        boolean fechaCambio = request.fecha() != null && !request.fecha().equals(reserva.getFecha());
+        boolean faixaCambio = request.franjaId() != null && !request.franjaId().equals(reserva.getFranja().getId());
+        
+        Short nuevosComensales = request.comensales() != null ? request.comensales() : reserva.getComensales();
+        boolean capacidadCambio = request.comensales() != null && request.comensales() > reserva.getComensales();
+
+        Mesa mesaActual = request.mesaId() != null && mesaCambio 
+                ? mesaRepository.findById(request.mesaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Mesa no encontrada"))
+                : reserva.getMesa();
+        
+        LocalDate nuevaFecha = request.fecha() != null ? request.fecha() : reserva.getFecha();
+        UUID nuevaFranjaId = request.franjaId() != null ? request.franjaId() : reserva.getFranja().getId();
+
+        if (mesaCambio || fechaCambio || faixaCambio) {
+            boolean esMismaCombinacion = !mesaCambio && !fechaCambio && !faixaCambio;
+            
+            if (!esMismaCombinacion) {
+                validarCapacidad(mesaActual, nuevosComensales, Boolean.TRUE.equals(request.force()));
+                verificarDisponibilidad(mesaActual, nuevaFecha, nuevaFranjaId, Boolean.TRUE.equals(request.force()));
+            }
+        } else if (capacidadCambio) {
+            validarCapacidad(mesaActual, nuevosComensales, Boolean.TRUE.equals(request.force()));
+        }
+
+        if (request.mesaId() != null && mesaCambio) {
+            reserva.setMesa(mesaActual);
+        }
+        if (request.fecha() != null) {
+            reserva.setFecha(request.fecha());
+        }
+        if (request.franjaId() != null) {
+            FranjaHoraria nuevaFranja = franjaRepository.findById(request.franjaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Franja no encontrada"));
+            reserva.setFranja(nuevaFranja);
+        }
+
+        if (request.comensales() != null) {
+            reserva.setComensales(request.comensales());
+        }
+        if (request.nombreCliente() != null) {
+            reserva.setNombreCliente(request.nombreCliente());
+        }
+        if (request.telefono() != null) {
+            reserva.setTelefono(request.telefono());
+        }
+        if (request.email() != null) {
+            reserva.setEmail(request.email());
+        }
+        if (request.notas() != null) {
+            reserva.setNotas(request.notas());
+        }
+
+        Reserva guardada = reservaRepository.save(reserva);
+        ReservaResponse response = map(guardada);
+        
+        logger.info("[RESERVA] Actualizando reserva - id: {}, codigo: {}, cambios: mesa={}, fecha={}, faixa={}, comensales={}", 
+            response.id(), response.codigo(), mesaCambio, fechaCambio, faixaCambio, capacidadCambio);
+        eventProducer.publish("reserva.updated", response);
+        sseEmitterManager.broadcast("reserva.updated", response);
+        logger.info("[RESERVA] Evento publicado: reserva.updated para reserva {}", response.codigo());
+        
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<UUID> getMesasOcupadas(LocalDate fecha, UUID franjaId) {
+        return reservaRepository.findByFechaAndFranja_IdAndEstadoNot(fecha, franjaId, ReservaEstado.CANCELADA)
+                .stream()
+                .map(reserva -> reserva.getMesa().getId())
+                .collect(Collectors.toList());
     }
 
     private void validarCapacidad(Mesa mesa, short comensales, boolean force) {

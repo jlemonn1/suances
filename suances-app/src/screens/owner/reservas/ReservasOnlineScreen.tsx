@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ReservationCard, MetricsSummary } from '../../../components/reservas';
 import { Button, EmptyState } from '../../../components/common';
 import { colors, spacing, typography } from '../../../theme';

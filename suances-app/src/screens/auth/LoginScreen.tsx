@@ -7,6 +7,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
@@ -47,7 +48,7 @@ export const LoginScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.logo}>🍽️</Text>
+          <Ionicons name="restaurant" size={64} color={colors.accent} />
           <Text style={styles.title}>Suances</Text>
           <Text style={styles.subtitle}>Gestión de Restaurante</Text>
         </View>

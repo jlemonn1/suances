@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, Button, EmptyState, Loading } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { PersonnelResponse } from '../../types/personal';
@@ -98,7 +99,7 @@ export const PersonalListScreen: React.FC<PersonalListScreenProps> = ({
           style={styles.deleteButton}
           onPress={() => handleDelete(item.id, item.fullName)}
         >
-          <Text style={styles.deleteText}>🗑</Text>
+          <Ionicons name="trash-outline" size={20} color={colors.error} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Card>

@@ -51,6 +51,7 @@ export interface IngredienteResponse {
   precioPorUnidad: number;
   stockActual: number;
   umbralAlerta: number;
+  alertaEnviada: boolean;
   activo: boolean;
   createdAt: string;
   categoria?: CategoriaResponse;

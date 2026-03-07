@@ -13,6 +13,7 @@ import com.suances.carta.service.EventProducer;
 import com.suances.carta.service.IngredienteService;
 import com.suances.carta.service.PlatoService;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,7 @@ public class EventConsumer {
     private final EscandalloRepository escandalloRepository;
 
     private ExecutorService executor;
+    private volatile boolean activo = true;
 
     public EventConsumer(StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
@@ -78,6 +80,15 @@ public class EventConsumer {
         executor.submit(this::consumirEventos);
     }
 
+    @PreDestroy
+    public void detenerConsumidor() {
+        log.info("Deteniendo consumidor de eventos Redis...");
+        activo = false;
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+        }
+    }
+
     private void inicializarConsumerGroup() {
         try {
             redisTemplate.opsForStream().createGroup(streamEvents, ReadOffset.from("0"), group);
@@ -94,7 +105,7 @@ public class EventConsumer {
     private void consumirEventos() {
         log.info("Iniciando bucle de consumo de eventos...");
 
-        while (!Thread.currentThread().isInterrupted()) {
+        while (activo && !Thread.currentThread().isInterrupted()) {
             try {
                 List<MapRecord<String, Object, Object>> registros = redisTemplate.opsForStream().read(
                         Consumer.from(group, "carta-consumer"),
@@ -107,6 +118,9 @@ public class EventConsumer {
                     }
                 }
             } catch (Exception e) {
+                if (!activo) {
+                    break;
+                }
                 log.error("Error en consumidor de eventos", e);
                 try {
                     Thread.sleep(1000);

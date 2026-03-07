@@ -1,84 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Alert, ScrollView } from 'react-native';
-import { Button, Input, Loading } from '../../../components/common';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Button, Loading, EmptyState } from '../../../components/common';
 import { FranjaCard } from '../../../components/reservas';
+import { FranjaEditor } from '../../../components/reservas/FranjaEditor';
 import { useReservasStore } from '../../../store/reservasStore';
 import { colors, spacing, typography } from '../../../theme';
-import { FranjaRequest, FranjaTipo } from '../../../types/reservas';
+import { FranjaHoraria, FranjaRequest } from '../../../types/reservas';
 
-const franjaTipos: FranjaTipo[] = ['COMIDA', 'CENA', 'ESPECIAL'];
-
-export const FranjasScreen = () => {
-  const { franjas, fetchFranjas, saveFranja } = useReservasStore();
-  const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm] = useState<FranjaRequest>({
-    nombre: '',
-    tipo: 'COMIDA',
-    horaInicio: '13:00',
-    horaFin: '14:00',
-  });
+export const FranjasScreen: React.FC = () => {
+  const { franjas, loading, fetchFranjas, saveFranja, deleteFranja } = useReservasStore();
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [selectedFranja, setSelectedFranja] = useState<FranjaHoraria | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchFranjas();
   }, []);
 
-  const handleSubmit = async () => {
-    if (!form.nombre) {
-      Alert.alert('Nombre requerido');
-      return;
-    }
-    await saveFranja(form);
-    setModalVisible(false);
-    setForm({ ...form, nombre: '' });
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchFranjas();
+    setRefreshing(false);
   };
 
-  const handleToggle = async (franjaId: string) => {
-    const franja = franjas.find((f) => f.id === franjaId);
-    if (!franja) return;
+  const handleNewFranja = () => {
+    setSelectedFranja(null);
+    setEditorVisible(true);
+  };
+
+  const handleEditFranja = (franja: FranjaHoraria) => {
+    setSelectedFranja(franja);
+    setEditorVisible(true);
+  };
+
+  const handleToggle = async (franja: FranjaHoraria) => {
     await saveFranja({
       nombre: franja.nombre,
-      tipo: franja.tipo,
-      horaInicio: franja.horaInicio,
-      horaFin: franja.horaFin,
+      tipo:franja.tipo,
+      horaInicio:franja.horaInicio,
+      horaFin:franja.horaFin,
       activa: !franja.activa,
-    }, franjaId);
+    }, franja.id);
   };
+
+  const handleSave = async (data: FranjaRequest) => {
+    await saveFranja(data, selectedFranja?.id);
+    await fetchFranjas();
+  };
+
+  const handleDelete = async (franjaId: string) => {
+    await deleteFranja(franjaId);
+  };
+
+  const renderFranja = ({ item }: { item: FranjaHoraria }) => (
+    <FranjaCard
+      franca={item}
+      onToggle={handleToggle}
+      onPress={() => handleEditFranja(item)}
+    />
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Franjas horarias</Text>
-        <Button title="Nueva franja" size="small" onPress={() => setModalVisible(true)} />
+        <Text style={styles.title}>Franjas</Text>
+        <TouchableOpacity style={styles.addButton} onPress={handleNewFranja}>
+          <Ionicons name="add" size={24} color={colors.surface} />
+        </TouchableOpacity>
       </View>
-      {franjas.length === 0 ? (
-        <Loading message="Sin franjas" />
+
+      {loading.franjas && franjas.length === 0 ? (
+        <Loading message="Cargando franjas..." />
+      ) : franjas.length === 0 ? (
+        <EmptyState
+          title="Sin franjas"
+          message="Crea tu primera franja horaria para gestionar las reservas"
+          actionLabel="Crear franja"
+          onAction={handleNewFranja}
+        />
       ) : (
-        <ScrollView>
-          {franjas.map((franja) => (
-            <FranjaCard key={franja.id} franja={franja} onToggle={() => handleToggle(franja.id)} />
-          ))}
-        </ScrollView>
+        <FlatList
+          data={franjas}
+          renderItem={renderFranja}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
+          }
+        />
       )}
 
-      <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Franja</Text>
-          <Input label="Nombre" value={form.nombre} onChangeText={(value) => setForm((prev) => ({ ...prev, nombre: value }))} />
-          <Input
-            label="Tipo (COMIDA/CENA/ESPECIAL)"
-            value={form.tipo}
-            onChangeText={(value) =>
-              setForm((prev) => ({ ...prev, tipo: franjaTipos.includes(value as FranjaTipo) ? (value as FranjaTipo) : prev.tipo }))
-            }
-          />
-          <Input label="Hora inicio" value={form.horaInicio} onChangeText={(value) => setForm((prev) => ({ ...prev, horaInicio: value }))} />
-          <Input label="Hora fin" value={form.horaFin} onChangeText={(value) => setForm((prev) => ({ ...prev, horaFin: value }))} />
-          <View style={styles.modalActions}>
-            <Button title="Cancelar" variant="outline" onPress={() => setModalVisible(false)} />
-            <Button title="Guardar" onPress={handleSubmit} />
-          </View>
-        </View>
-      </Modal>
+      <FranjaEditor
+        visible={editorVisible}
+        franja={selectedFranja}
+        onClose={() => setEditorVisible(false)}
+        onSave={handleSave}
+        onDelete={handleDelete}
+      />
     </View>
   );
 };
@@ -87,31 +107,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: spacing.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   title: {
     ...typography.h1,
     color: colors.text,
   },
-  modalContent: {
-    flex: 1,
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-    gap: spacing.md,
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalTitle: {
-    ...typography.h2,
-    color: colors.text,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
+  list: {
+    padding: spacing.md,
   },
 });

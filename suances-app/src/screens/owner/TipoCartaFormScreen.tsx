@@ -8,14 +8,21 @@ import {
   Switch,
   TouchableOpacity,
   FlatList,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input, Loading } from '../../components/common';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, borderRadius } from '../../theme';
 import { cartaService } from '../../services/cartaService';
 import { TipoCarta, TipoCartaRequest, TipoCartaResponse, PlatoInfo } from '../../types/carta';
 import { PlatoResponse } from '../../types/plato';
 import { useTipoCartaStore } from '../../store/tipoCartaStore';
 import { usePlatoStore } from '../../store/platoStore';
+
+const HORAS = Array.from({ length: 24 }, (_, i) =>
+  `${i.toString().padStart(2, '0')}:00`
+);
+const MINUTOS = ['00', '15', '30', '45'];
 
 interface TipoCartaFormScreenProps {
   navigation: any;
@@ -37,10 +44,12 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
   const [activo, setActivo] = useState(initialData?.activo ?? true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ nombre?: string; hora?: string }>({});
-  
+
   const [platosAsociados, setPlatosAsociados] = useState<PlatoInfo[]>(initialData?.platos || []);
   const [loadingPlatos, setLoadingPlatos] = useState(false);
   const [showPlatosSelector, setShowPlatosSelector] = useState(false);
+  const [showHoraInicioPicker, setShowHoraInicioPicker] = useState(false);
+  const [showHoraFinPicker, setShowHoraFinPicker] = useState(false);
 
   useEffect(() => {
     if (editing && initialData?.id) {
@@ -170,6 +179,83 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
     { label: 'Todo el día', inicio: '08:00', fin: '23:00' },
   ];
 
+  const TimePicker: React.FC<{
+    value: string;
+    onChange: (value: string) => void;
+    visible: boolean;
+    onClose: () => void;
+    label: string;
+  }> = ({ value, onChange, visible: pickerVisible, onClose, label }) => {
+    const [hora, minuto] = value.split(':');
+    const [h, setH] = useState(hora);
+    const [m, setM] = useState(minuto);
+
+    useEffect(() => {
+      const [horaVal, minutoVal] = value.split(':');
+      setH(horaVal);
+      setM(minutoVal);
+    }, [value, pickerVisible]);
+
+    if (!pickerVisible) return null;
+
+    return (
+      <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={styles.timePickerOverlay}>
+          <View style={styles.timePickerContainer}>
+            <View style={styles.timePickerHeader}>
+              <Text style={styles.timePickerTitle}>{label}</Text>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.timePickerContent}>
+              <View style={styles.timeColumn}>
+                <Text style={styles.timeColumnLabel}>Hora</Text>
+                <ScrollView style={styles.timeScroll} showsVerticalScrollIndicator={false}>
+                  {HORAS.map((hItem) => (
+                    <TouchableOpacity
+                      key={hItem}
+                      style={[styles.timeOption, h === hItem.replace(':00', '') && styles.timeOptionSelected]}
+                      onPress={() => setH(hItem.replace(':00', ''))}
+                    >
+                      <Text style={[styles.timeOptionText, h === hItem.replace(':00', '') && styles.timeOptionTextSelected]}>
+                        {hItem}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={styles.timeColumn}>
+                <Text style={styles.timeColumnLabel}>Min</Text>
+                <ScrollView style={styles.timeScroll} showsVerticalScrollIndicator={false}>
+                  {MINUTOS.map((mItem) => (
+                    <TouchableOpacity
+                      key={mItem}
+                      style={[styles.timeOption, m === mItem && styles.timeOptionSelected]}
+                      onPress={() => setM(mItem)}
+                    >
+                      <Text style={[styles.timeOptionText, m === mItem && styles.timeOptionTextSelected]}>
+                        :{mItem}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+            <Button
+              title="Confirmar"
+              onPress={() => {
+                onChange(`${h.padStart(2, '0')}:${m}`);
+                onClose();
+              }}
+              style={styles.timePickerConfirm}
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Input
@@ -181,25 +267,27 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
       />
 
       <Text style={styles.sectionTitle}>Horario</Text>
-      
+
       <View style={styles.timeRow}>
-        <View style={styles.timeInput}>
-          <Input
-            label="Inicio"
-            value={horaInicio}
-            onChangeText={setHoraInicio}
-            placeholder="HH:MM"
-            keyboardType="numbers-and-punctuation"
-          />
+        <View style={styles.timeColumn}>
+          <Text style={styles.timeLabel}>Inicio</Text>
+          <TouchableOpacity
+            style={styles.timeButton}
+            onPress={() => setShowHoraInicioPicker(true)}
+          >
+            <Ionicons name="time-outline" size={20} color={colors.accent} />
+            <Text style={styles.timeButtonText}>{horaInicio}</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.timeInput}>
-          <Input
-            label="Fin"
-            value={horaFin}
-            onChangeText={setHoraFin}
-            placeholder="HH:MM"
-            keyboardType="numbers-and-punctuation"
-          />
+        <View style={styles.timeColumn}>
+          <Text style={styles.timeLabel}>Fin</Text>
+          <TouchableOpacity
+            style={styles.timeButton}
+            onPress={() => setShowHoraFinPicker(true)}
+          >
+            <Ionicons name="time-outline" size={20} color={colors.accent} />
+            <Text style={styles.timeButtonText}>{horaFin}</Text>
+          </TouchableOpacity>
         </View>
       </View>
       {errors.hora && <Text style={styles.errorText}>{errors.hora}</Text>}
@@ -209,13 +297,27 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
         {presetRanges.map((preset) => (
           <TouchableOpacity
             key={preset.label}
-            style={styles.presetChip}
+            style={[
+              styles.presetChip,
+              horaInicio === preset.inicio && horaFin === preset.fin && styles.presetChipActive
+            ]}
             onPress={() => {
               setHoraInicio(preset.inicio);
               setHoraFin(preset.fin);
             }}
           >
-            <Text style={styles.presetText}>{preset.label}</Text>
+            <Text style={[
+              styles.presetText,
+              horaInicio === preset.inicio && horaFin === preset.fin && styles.presetTextActive
+            ]}>
+              {preset.label}
+            </Text>
+            <Text style={[
+              styles.presetTime,
+              horaInicio === preset.inicio && horaFin === preset.fin && styles.presetTimeActive
+            ]}>
+              {preset.inicio} - {preset.fin}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -251,7 +353,7 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
                     <Text style={styles.platoNombre}>{plato.nombre}</Text>
                   </View>
                   <TouchableOpacity onPress={() => handleEliminarPlato(plato.id)}>
-                    <Text style={styles.removeText}>✕</Text>
+                    <Ionicons name="close-circle" size={20} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -263,7 +365,12 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
       {showPlatosSelector && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Agregar plato</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Agregar plato</Text>
+              <TouchableOpacity onPress={() => setShowPlatosSelector(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
             {platosNoAsociados.length === 0 ? (
               <Text style={styles.emptyText}>No hay más platos disponibles</Text>
             ) : (
@@ -291,6 +398,21 @@ export const TipoCartaFormScreen: React.FC<TipoCartaFormScreenProps> = ({
           </View>
         </View>
       )}
+
+      <TimePicker
+        value={horaInicio}
+        onChange={setHoraInicio}
+        visible={showHoraInicioPicker}
+        onClose={() => setShowHoraInicioPicker(false)}
+        label="Hora de inicio"
+      />
+      <TimePicker
+        value={horaFin}
+        onChange={setHoraFin}
+        visible={showHoraFinPicker}
+        onClose={() => setShowHoraFinPicker(false)}
+        label="Hora de fin"
+      />
 
       <Button
         title={editing ? 'Actualizar' : 'Crear Tipo de Carta'}
@@ -321,8 +443,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
   },
-  timeInput: {
+  timeColumn: {
     flex: 1,
+  },
+  timeLabel: {
+    ...typography.bodySmall,
+    color: colors.text,
+    marginBottom: spacing.xs,
+    fontWeight: '500',
+  },
+  timeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  timeButtonText: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
   },
   errorText: {
     ...typography.caption,
@@ -332,17 +476,40 @@ const styles = StyleSheet.create({
   presets: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
   presetChip: {
+    width: '48%',
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  presetChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   presetText: {
-    ...typography.body,
-    color: colors.primary,
+    ...typography.bodySmall,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  presetTextActive: {
+    color: colors.surface,
+  },
+  presetTime: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  presetTimeActive: {
+    color: colors.surface,
+    opacity: 0.9,
   },
   switchRow: {
     flexDirection: 'row',
@@ -428,10 +595,16 @@ const styles = StyleSheet.create({
     width: '85%',
     maxHeight: '70%',
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
   modalTitle: {
     ...typography.h3,
     color: colors.text,
-    marginBottom: spacing.md,
+    flex: 1,
     textAlign: 'center',
   },
   modalCloseButton: {
@@ -447,5 +620,67 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  timePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timePickerContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '85%',
+    maxHeight: '70%',
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  timePickerTitle: {
+    ...typography.h3,
+    color: colors.text,
+  },
+  timePickerContent: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    height: 250,
+  },
+  timeColumn: {
+    flex: 1,
+  },
+  timeColumnLabel: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  timeScroll: {
+    flex: 1,
+  },
+  timeOption: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    marginVertical: 2,
+  },
+  timeOptionSelected: {
+    backgroundColor: colors.accent,
+  },
+  timeOptionText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  timeOptionTextSelected: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  timePickerConfirm: {
+    marginTop: spacing.lg,
   },
 });

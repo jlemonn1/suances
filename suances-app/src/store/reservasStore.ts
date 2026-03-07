@@ -15,7 +15,7 @@ import {
   WaitlistEntry,
   WaitlistEstado,
 } from '../types/reservas';
-import { reservasService } from '../services/reservasService';
+import { reservasService, MesasOcupadasResponse } from '../services/reservasService';
 
 interface LoadingState {
   salas: boolean;
@@ -29,6 +29,7 @@ interface LoadingState {
 interface ReservasState {
   salas: Sala[];
   mesasBySala: Record<string, Mesa[]>;
+  mesasOcupadas: MesasOcupadasResponse | null;
   franjas: FranjaHoraria[];
   reservas: Reserva[];
   waitlist: WaitlistEntry[];
@@ -48,10 +49,15 @@ interface ReservasState {
   deleteFranja: (franjaId: string) => Promise<void>;
   fetchReservas: (filters?: Partial<AgendaFilters>) => Promise<void>;
   createReserva: (payload: ReservaRequest) => Promise<Reserva>;
+  updateReserva: (reservaId: string, payload: Partial<ReservaRequest>) => Promise<Reserva>;
   cancelReserva: (reservaId: string, motivo?: string) => Promise<Reserva>;
   fetchWaitlist: (fecha?: string, franjaId?: string) => Promise<void>;
   updateWaitlistEstado: (entryId: string, estado: WaitlistEstado) => Promise<void>;
   fetchDisponibilidad: (fecha: string) => Promise<void>;
+  fetchMesasOcupadas: (fecha: string, franjaId: string) => Promise<void>;
+  handleReservaCreated: (reserva: Reserva) => void;
+  handleReservaCancelled: (reserva: Reserva) => void;
+  handleReservaUpdated: (reserva: Reserva) => void;
   setAgendaFilters: (filters: Partial<AgendaFilters>) => void;
   getMetrics: () => ReservasMetrics;
 }
@@ -61,6 +67,7 @@ const today = new Date().toISOString().split('T')[0];
 export const useReservasStore = create<ReservasState>((set, get) => ({
   salas: [],
   mesasBySala: {},
+  mesasOcupadas: null,
   franjas: [],
   reservas: [],
   waitlist: [],
@@ -214,13 +221,27 @@ export const useReservasStore = create<ReservasState>((set, get) => ({
   },
 
   createReserva: async (payload) => {
+    console.log('[FRONT] Creando reserva:', payload);
     const nueva = await reservasService.createReserva(payload);
+    console.log('[FRONT] Reserva creada:', nueva.codigo);
     set((state) => ({ reservas: [nueva, ...state.reservas] }));
     return nueva;
   },
 
+  updateReserva: async (reservaId, payload) => {
+    console.log('[FRONT] Actualizando reserva:', reservaId, payload);
+    const actualizada = await reservasService.updateReserva(reservaId, payload);
+    console.log('[FRONT] Reserva actualizada:', actualizada.codigo);
+    set((state) => ({
+      reservas: state.reservas.map((r) => (r.id === reservaId ? actualizada : r)),
+    }));
+    return actualizada;
+  },
+
   cancelReserva: async (reservaId, motivo) => {
+    console.log('[FRONT] Cancelando reserva:', reservaId, 'motivo:', motivo);
     const updated = await reservasService.cancelReserva(reservaId, motivo);
+    console.log('[FRONT] Reserva cancelada:', updated.codigo);
     set((state) => ({
       reservas: state.reservas.map((r) => (r.id === reservaId ? updated : r)),
     }));
@@ -264,16 +285,49 @@ export const useReservasStore = create<ReservasState>((set, get) => ({
     }
   },
 
+  fetchMesasOcupadas: async (fecha, franjaId) => {
+    try {
+      const mesasOcupadas = await reservasService.getMesasOcupadas(fecha, franjaId);
+      set({ mesasOcupadas });
+    } catch (error) {
+      console.error('Error fetching mesas ocupadas', error);
+      set({ mesasOcupadas: null });
+    }
+  },
+
+  handleReservaCreated: (reserva) => {
+    set((state) => {
+      const exists = state.reservas.some((r) => r.id === reserva.id);
+      if (exists) return state;
+      return { reservas: [reserva, ...state.reservas] };
+    });
+  },
+
+  handleReservaCancelled: (reserva) => {
+    set((state) => ({
+      reservas: state.reservas.map((r) => (r.id === reserva.id ? reserva : r)),
+    }));
+  },
+
+  handleReservaUpdated: (reserva) => {
+    set((state) => ({
+      reservas: state.reservas.map((r) => (r.id === reserva.id ? reserva : r)),
+    }));
+  },
+
   setAgendaFilters: (filters) => {
     set((state) => ({ agendaFilters: { ...state.agendaFilters, ...filters } }));
   },
 
   getMetrics: () => {
-    const { reservas, waitlist, mesasBySala } = get();
-    const reservasTotales = reservas.length;
-    const reservasConfirmadas = reservas.filter((r) => r.estado === 'CONFIRMADA').length;
-    const reservasPendientes = reservas.filter((r) => r.estado === 'PENDIENTE').length;
-    const reservasCanceladas = reservas.filter((r) => r.estado === 'CANCELADA').length;
+    const { reservas, waitlist, mesasBySala, agendaFilters } = get();
+    const reservasFiltradas = agendaFilters.fecha 
+      ? reservas.filter((r) => r.fecha === agendaFilters.fecha)
+      : reservas;
+    const reservasTotales = reservasFiltradas.length;
+    const reservasConfirmadas = reservasFiltradas.filter((r) => r.estado === 'CONFIRMADA').length;
+    const reservasPendientes = reservasFiltradas.filter((r) => r.estado === 'PENDIENTE').length;
+    const reservasCanceladas = reservasFiltradas.filter((r) => r.estado === 'CANCELADA').length;
     const waitlistSize = waitlist.length;
     const mesasBloqueadas = Object.values(mesasBySala).reduce(
       (acc, mesas) => acc + mesas.filter((m) => m.estado === 'BLOQUEADA').length,

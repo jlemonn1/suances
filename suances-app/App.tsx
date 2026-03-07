@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthNavigator, OwnerNavigator, StaffNavigator } from './src/navigation';
+import { AdminOverlay } from './src/components/admin/AdminOverlay';
 import { useAuthStore } from './src/store/authStore';
 import { colors } from './src/theme';
 
@@ -28,16 +30,20 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style="light" />
-      {!isAuthenticated ? (
-        <AuthNavigator />
-      ) : isOwner() ? (
-        <OwnerNavigator />
-      ) : (
-        <StaffNavigator />
-      )}
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style="light" />
+        {!isAuthenticated ? (
+          <AuthNavigator />
+        ) : isOwner() ? (
+          <AdminOverlay>
+            <OwnerNavigator />
+          </AdminOverlay>
+        ) : (
+          <StaffNavigator />
+        )}
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 

@@ -16,6 +16,10 @@ import {
   WaitlistEstado,
 } from '../types/reservas';
 
+export interface MesasOcupadasResponse {
+  mesaIds: string[];
+}
+
 export const reservasService = {
   // Salas
   getSalas: async (): Promise<Sala[]> => {
@@ -90,14 +94,27 @@ export const reservasService = {
     const response = await reservasApi.get<Reserva[]>('/reservas', {
       params: {
         fecha: filters.fecha,
+        franjaId: filters.franjaId,
         estado: filters.estado,
       },
     });
     return response.data;
   },
 
+  getMesasOcupadas: async (fecha: string, franjaId: string): Promise<MesasOcupadasResponse> => {
+    const response = await reservasApi.get<MesasOcupadasResponse>('/reservas/mesas-ocupadas', {
+      params: { fecha, franjaId },
+    });
+    return response.data;
+  },
+
   createReserva: async (payload: ReservaRequest): Promise<Reserva> => {
     const response = await reservasApi.post<Reserva>('/reservas', payload);
+    return response.data;
+  },
+
+  updateReserva: async (reservaId: string, payload: Partial<ReservaRequest>): Promise<Reserva> => {
+    const response = await reservasApi.patch<Reserva>(`/reservas/${reservaId}`, payload);
     return response.data;
   },
 

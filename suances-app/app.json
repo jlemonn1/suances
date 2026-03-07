@@ -25,6 +25,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "@expo/vector-icons/Ionicons.ttf"
+          ]
+        }
+      ]
+    ]
   }
 }

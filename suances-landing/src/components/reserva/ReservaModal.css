@@ -1,0 +1,96 @@
+.reserva-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+  animation: fadeIn 0.3s ease;
+}
+
+.reserva-modal__content {
+  position: relative;
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+.reserva-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--color-text-light);
+  font-size: 32px;
+  cursor: pointer;
+  transition: var(--transition);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.reserva-modal__close:hover {
+  color: var(--color-primary);
+  background-color: var(--color-light);
+}
+
+.reserva-modal__title {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  text-align: center;
+  margin-bottom: 8px;
+  color: var(--color-primary);
+}
+
+.reserva-modal__subtitle {
+  font-size: 14px;
+  text-align: center;
+  color: var(--color-text-light);
+  margin-bottom: 24px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .reserva-modal__content {
+    padding: 24px;
+    max-height: 85vh;
+  }
+
+  .reserva-modal__title {
+    font-size: 24px;
+    padding-right: 32px;
+  }
+}

@@ -17,6 +17,7 @@ C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\s
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\domain\model\Plato.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\domain\model\PlatoImagen.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\domain\model\TipoCarta.java
+C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\CartaEventResponse.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\SalaPedidoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\StockBajoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\request\AsociarPlatosRequest.java
@@ -33,6 +34,7 @@ C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\s
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\response\IngredienteResponse.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\response\PlatoResponse.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\response\TipoCartaResponse.java
+C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\event\SseEmitterManager.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\exception\BusinessRuleException.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\exception\GlobalExceptionHandler.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\exception\ResourceNotFoundException.java

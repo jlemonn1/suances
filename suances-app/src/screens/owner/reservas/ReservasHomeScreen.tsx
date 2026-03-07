@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, RefreshControl, Alert, TouchableOpacity } from 'react-native';
-import { AgendaFiltersBar, MetricsSummary, ReservationCard } from '../../../components/reservas';
-import { Button, Loading, EmptyState } from '../../../components/common';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { ScrollView, View, Text, StyleSheet, RefreshControl, Alert, Animated } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { AgendaFiltersBar, ReservationCard, QuickActionsBar } from '../../../components/reservas';
+import { Loading, EmptyState } from '../../../components/common';
 import { colors, spacing, typography } from '../../../theme';
 import { useReservasStore } from '../../../store/reservasStore';
 import { Reserva } from '../../../types/reservas';
@@ -28,6 +29,8 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
   } = useReservasStore();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchFranjas();
@@ -46,30 +49,140 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, [salas]);
 
+  const formatHora = (hora: string): string => {
+    return hora.substring(0, 5);
+  };
+
   const franjasMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, { nombre: string; horaInicio: string; horaFin: string }> = {};
     franjas.forEach((franja) => {
-      map[franja.id] = `${franja.nombre} ${franja.horaInicio}-${franja.horaFin}`;
+      const horaInicio = formatHora(franja.horaInicio);
+      const horaFin = formatHora(franja.horaFin);
+      map[franja.id] = { 
+        nombre: franja.nombre, 
+        horaInicio: formatHora(franja.horaInicio),
+        horaFin: formatHora(franja.horaFin)
+      };
     });
     return map;
   }, [franjas]);
 
+  const sortedFranjas = useMemo(() => {
+    return [...franjas].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
+  }, [franjas]);
+
   const mesasMap = useMemo(() => {
     const map: Record<string, { numero: number; salaName?: string }> = {};
-    Object.values(mesasBySala).forEach((mesas) => {
+    Object.entries(mesasBySala).forEach(([salaId, mesas]) => {
+      const sala = salas.find((s) => s.id === salaId);
+      const salaName = sala?.nombre || 'Sala';
       mesas.forEach((mesa) => {
-        map[mesa.id] = { numero: mesa.numero };
+        map[mesa.id] = { numero: mesa.numero, salaName };
       });
     });
     return map;
-  }, [mesasBySala]);
+  }, [mesasBySala, salas]);
 
   const filteredReservas = useMemo(() => {
-    if (!agendaFilters.franjaId) return reservas;
-    return reservas.filter((reserva) => reserva.franjaId === agendaFilters.franjaId);
-  }, [reservas, agendaFilters.franjaId]);
+    let filtered = reservas;
+    
+    // Filtrar por fecha seleccionada
+    if (agendaFilters.fecha) {
+      filtered = filtered.filter((reserva) => reserva.fecha === agendaFilters.fecha);
+    }
+    
+    // Filtrar por franja seleccionada
+    if (agendaFilters.franjaId) {
+      filtered = filtered.filter((reserva) => reserva.franjaId === agendaFilters.franjaId);
+    }
+    
+    // Filtrar por búsqueda (nombre o teléfono)
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((reserva) => 
+        reserva.nombreCliente.toLowerCase().includes(query) ||
+        reserva.telefono.toLowerCase().includes(query)
+      );
+    }
+    
+    // Ordenar: canceladas al final
+    return [...filtered].sort((a, b) => {
+      const aIsCancelled = a.estado === 'CANCELADA';
+      const bIsCancelled = b.estado === 'CANCELADA';
+      if (aIsCancelled && !bIsCancelled) return 1;
+      if (!aIsCancelled && bIsCancelled) return -1;
+      return 0;
+    });
+  }, [reservas, agendaFilters.fecha, agendaFilters.franjaId, searchQuery]);
 
-  const metrics = getMetrics();
+  const groupedReservas = useMemo(() => {
+    const grouped: Record<string, Reserva[]> = {};
+    
+    filteredReservas.forEach((reserva) => {
+      const franjaId = reserva.franjaId || 'sin-franja';
+      if (!grouped[franjaId]) {
+        grouped[franjaId] = [];
+      }
+      grouped[franjaId].push(reserva);
+    });
+
+    Object.keys(grouped).forEach((franjaId) => {
+      grouped[franjaId].sort((a, b) => {
+        const aIsCancelled = a.estado === 'CANCELADA';
+        const bIsCancelled = b.estado === 'CANCELADA';
+        if (aIsCancelled && !bIsCancelled) return 1;
+        if (!aIsCancelled && bIsCancelled) return -1;
+        
+        const aMesa = mesasMap[a.mesaId];
+        const bMesa = mesasMap[b.mesaId];
+        const aSalaName = aMesa?.salaName || '';
+        const bSalaName = bMesa?.salaName || '';
+        const salaCompare = aSalaName.localeCompare(bSalaName);
+        if (salaCompare !== 0) return salaCompare;
+        
+        return (aMesa?.numero || 0) - (bMesa?.numero || 0);
+      });
+    });
+
+    return grouped;
+  }, [filteredReservas, mesasMap]);
+
+  const renderFranjaGroup = (franjaId: string) => {
+    const reservas = groupedReservas[franjaId];
+    if (!reservas || reservas.length === 0) return null;
+
+    const franja = franjasMap[franjaId];
+    const horaLabel = franja ? `${franja.horaInicio} - ${franja.horaFin}` : 'Sin horario';
+
+    return (
+      <View key={franjaId} style={styles.franjaGroup}>
+        <View style={styles.franjaHeader}>
+          <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+          <Text style={styles.franjaHeaderText}>{horaLabel}</Text>
+        </View>
+        {reservas.map((reserva) => (
+          <ReservationCard
+            key={reserva.id}
+            reserva={reserva}
+            mesaLabel={mesasMap[reserva.mesaId] ? `${mesasMap[reserva.mesaId].salaName} - Mesa ${mesasMap[reserva.mesaId].numero}` : undefined}
+            onPress={() => navigation.navigate('ReservaDetail', { reservaId: reserva.id })}
+            onCancel={handleCancel}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  const metrics = useMemo(() => {
+    return {
+      reservasTotales: filteredReservas.length,
+      reservasConfirmadas: filteredReservas.filter(r => r.estado === 'CONFIRMADA').length,
+      reservasPendientes: filteredReservas.filter(r => r.estado === 'PENDIENTE').length,
+      reservasCanceladas: filteredReservas.filter(r => r.estado === 'CANCELADA').length,
+      waitlistSize: 0, // No aplicamos búsqueda a waitlist
+      mesasBloqueadas: 0,
+    };
+  }, [filteredReservas]);
 
   const handleCancel = (reserva: Reserva) => {
     Alert.alert('Cancelar reserva', `¿Seguro de cancelar a ${reserva.nombreCliente}?`, [
@@ -93,22 +206,30 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Reservas & Sala</Text>
-          <Text style={styles.subtitle}>Controla tu capacidad en tiempo real</Text>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Waitlist')}>
-          <Text style={styles.link}>Lista de espera →</Text>
-        </TouchableOpacity>
-      </View>
-
-      <MetricsSummary metrics={metrics} />
-
+    <View style={styles.container}>
+      <QuickActionsBar
+        onNuevaReserva={() => navigation.navigate('ReservaEditor')}
+        onReservasOnline={() => navigation.navigate('ReservasOnline')}
+        onSalas={() => navigation.navigate('Espacios')}
+        onFranjas={() => navigation.navigate('Franjas')}
+        scrollY={scrollY}
+        fecha={agendaFilters.fecha}
+        onChangeFecha={(fecha) => setAgendaFilters({ fecha })}
+        onSearch={setSearchQuery}
+        total={metrics.reservasTotales}
+        confirmadas={metrics.reservasConfirmadas}
+        canceladas={metrics.reservasCanceladas}
+        espera={metrics.waitlistSize}
+      />
+      <Animated.ScrollView
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.scrollContent}
+      >
       <AgendaFiltersBar
         fecha={agendaFilters.fecha}
         franjas={franjas}
@@ -121,25 +242,6 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
         onRefresh={onRefresh}
       />
 
-      <View style={styles.quickActions}>
-        <Button title="Nueva reserva" onPress={() => navigation.navigate('ReservaEditor')} />
-        <Button
-          title="Reservas online"
-          variant="secondary"
-          onPress={() => navigation.navigate('ReservasOnline')}
-        />
-        <Button
-          title="Configurar salas"
-          variant="outline"
-          onPress={() => navigation.navigate('Espacios')}
-        />
-        <Button
-          title="Franjas horarias"
-          variant="outline"
-          onPress={() => navigation.navigate('Franjas')}
-        />
-      </View>
-
       {filteredReservas.length === 0 && (
         <EmptyState
           title="Sin reservas"
@@ -149,17 +251,13 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
         />
       )}
 
-      {filteredReservas.map((reserva) => (
-        <ReservationCard
-          key={reserva.id}
-          reserva={reserva}
-          franjaLabel={franjasMap[reserva.franjaId]}
-          mesaLabel={mesasMap[reserva.mesaId] ? `Mesa ${mesasMap[reserva.mesaId].numero}` : undefined}
-          onPress={() => navigation.navigate('ReservaDetail', { reservaId: reserva.id })}
-          onCancel={handleCancel}
-        />
-      ))}
-    </ScrollView>
+      {agendaFilters.franjaId ? (
+        renderFranjaGroup(agendaFilters.franjaId)
+      ) : (
+        sortedFranjas.map((franja) => renderFranjaGroup(franja.id))
+      )}
+    </Animated.ScrollView>
+    </View>
   );
 };
 
@@ -167,27 +265,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollContent: {
     padding: spacing.md,
   },
-  header: {
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    opacity: 0.5,
+  },
+  dividerWithMargin: {
+    marginBottom: spacing.sm,
+  },
+  franjaGroup: {
+    marginBottom: spacing.md,
+  },
+  franjaHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  title: {
-    ...typography.h1,
-    color: colors.text,
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  link: {
+  franjaHeaderText: {
     ...typography.bodySmall,
-    color: colors.accent,
-  },
-  quickActions: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    color: colors.textSecondary,
+    marginLeft: spacing.xs,
+    fontWeight: '600',
   },
 });

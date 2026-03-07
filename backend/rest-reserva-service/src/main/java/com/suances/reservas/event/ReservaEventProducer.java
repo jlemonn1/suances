@@ -41,6 +41,7 @@ public class ReservaEventProducer {
             body.put("data", objectMapper.writeValueAsString(payload));
             MapRecord<String, String, String> record = StreamRecords.mapBacked(body).withStreamKey(streamOutput);
             redisTemplate.opsForStream().add(record);
+            logger.info("[REDIS] Evento publicado al stream {}: {}", streamOutput, type);
         } catch (JsonProcessingException ex) {
             logger.error("Error serializando evento {}", type, ex);
         }

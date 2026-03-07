@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, Button } from '../common';
 import { colors, spacing, typography } from '../../theme';
 import { WaitlistEntry, WaitlistEstado } from '../../types/reservas';
@@ -28,12 +29,26 @@ export const WaitlistEntryCard: React.FC<Props> = ({ entry, franjaLabel, onUpdat
         <Text style={styles.estado}>{estadoLabels[entry.estado]}</Text>
       </View>
       <View style={styles.row}>
-        <Text style={styles.meta}>📞 {entry.telefono}</Text>
-        <Text style={styles.meta}>👥 {entry.comensales}</Text>
+        <View style={styles.metaItem}>
+          <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
+          <Text style={styles.meta}> {entry.telefono}</Text>
+        </View>
+        <View style={styles.metaItem}>
+          <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
+          <Text style={styles.meta}> {entry.comensales}</Text>
+        </View>
       </View>
       <View style={styles.row}>
-        <Text style={styles.meta}>🎯 Prioridad {entry.prioridad}</Text>
-        {franjaLabel && <Text style={styles.meta}>⏱ {franjaLabel}</Text>}
+        <View style={styles.metaItem}>
+          <Ionicons name="flag-outline" size={14} color={colors.accent} />
+          <Text style={styles.meta}> Prioridad {entry.prioridad}</Text>
+        </View>
+        {franjaLabel && (
+          <View style={styles.metaItem}>
+            <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
+            <Text style={styles.meta}> {franjaLabel}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.actions}>
@@ -89,6 +104,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: spacing.xs,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   meta: {
     ...typography.caption,

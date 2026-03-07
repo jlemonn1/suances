@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, Loading, EmptyState } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
@@ -164,12 +165,36 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.platoNombre}>{platoNombre || 'Plato'}</Text>
-        <TextInput
-          style={styles.versionInput}
-          value={nombreVersion}
-          onChangeText={setNombreVersion}
-          placeholder="Nombre versión"
-        />
+        <View style={styles.versionRow}>
+          <TextInput
+            style={styles.versionInput}
+            value={nombreVersion}
+            onChangeText={setNombreVersion}
+            placeholder="Nombre versión"
+          />
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              style={styles.iconButton}
+              onPress={() => setShowSelector(true)}
+            >
+              <Ionicons name="add-circle-outline" size={22} color={colors.accent} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.iconButton, styles.saveButton]}
+              onPress={handleSave}
+            >
+              <Ionicons name="save-outline" size={20} color={colors.success} />
+            </TouchableOpacity>
+            {escandallo && (
+              <TouchableOpacity 
+                style={[styles.iconButton, styles.deleteButton]}
+                onPress={handleDelete}
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.error} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
 
       <View style={styles.costeContainer}>
@@ -204,7 +229,7 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => removeDetalle(item.ingredienteId)}>
-                  <Text style={styles.removeButton}>✕</Text>
+                  <Ionicons name="close-circle" size={20} color={colors.error} />
                 </TouchableOpacity>
               </View>
               <View style={styles.cantidadRow}>
@@ -225,7 +250,7 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
         }}
       />
 
-      {showSelector ? (
+      {showSelector && (
         <View style={styles.selectorContainer}>
           <Text style={styles.selectorTitle}>Seleccionar ingrediente</Text>
           <FlatList
@@ -248,28 +273,6 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
             variant="secondary"
           />
         </View>
-      ) : (
-        <View style={styles.footer}>
-          <Button
-            title="+ Añadir Ingrediente"
-            onPress={() => setShowSelector(true)}
-            variant="secondary"
-            style={styles.footerButton}
-          />
-          <Button
-            title="Guardar Escandallo"
-            onPress={handleSave}
-            loading={saving}
-            style={styles.footerButton}
-          />
-          {escandallo && (
-            <Button
-              title="Eliminar Escandallo"
-              onPress={handleDelete}
-              variant="danger"
-            />
-          )}
-        </View>
       )}
     </View>
   );
@@ -286,32 +289,61 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  versionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.accent + '30',
+  },
+  saveButton: {
+    backgroundColor: colors.success + '15',
+    borderColor: colors.success + '30',
+  },
+  deleteButton: {
+    backgroundColor: colors.error + '15',
+    borderColor: colors.error + '30',
+  },
   platoNombre: {
     ...typography.h2,
     color: colors.text,
   },
   versionInput: {
     ...typography.body,
-    color: colors.textSecondary,
+    color: colors.text,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingVertical: spacing.sm,
-    marginTop: spacing.xs,
+    flex: 1,
   },
   costeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.md,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.primary,
   },
   costeLabel: {
     ...typography.body,
-    color: colors.primary,
+    color: colors.background,
   },
   costeValue: {
     ...typography.h2,
-    color: colors.primary,
+    color: colors.background,
+    fontWeight: '700',
   },
   list: {
     padding: spacing.md,
@@ -411,18 +443,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
   },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
-  },
-  footerButton: {
-    marginBottom: spacing.xs,
-  },
+
 });

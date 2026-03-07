@@ -5,13 +5,18 @@ import com.suances.carta.domain.model.Distribuidor;
 import com.suances.carta.domain.model.Escandallo;
 import com.suances.carta.domain.model.EscandalloDetalle;
 import com.suances.carta.domain.model.Ingrediente;
+import com.suances.carta.dto.event.CartaEventResponse;
+import com.suances.carta.dto.event.StockBajoEvent;
 import com.suances.carta.dto.request.IngredienteRequest;
 import com.suances.carta.dto.response.IngredienteResponse;
+import com.suances.carta.event.SseEmitterManager;
 import com.suances.carta.exception.ResourceNotFoundException;
 import com.suances.carta.repository.CategoriaRepository;
 import com.suances.carta.repository.DistribuidorRepository;
 import com.suances.carta.repository.EscandalloRepository;
 import com.suances.carta.repository.IngredienteRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -22,19 +27,27 @@ import java.util.stream.Collectors;
 @Service
 public class IngredienteService {
 
+    private static final Logger logger = LoggerFactory.getLogger(IngredienteService.class);
+
     private final IngredienteRepository ingredienteRepository;
     private final DistribuidorRepository distribuidorRepository;
     private final EscandalloRepository escandalloRepository;
     private final CategoriaRepository categoriaRepository;
+    private final EventProducer eventProducer;
+    private final SseEmitterManager sseEmitterManager;
 
     public IngredienteService(IngredienteRepository ingredienteRepository,
             DistribuidorRepository distribuidorRepository,
             EscandalloRepository escandalloRepository,
-            CategoriaRepository categoriaRepository) {
+            CategoriaRepository categoriaRepository,
+            EventProducer eventProducer,
+            SseEmitterManager sseEmitterManager) {
         this.ingredienteRepository = ingredienteRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.escandalloRepository = escandalloRepository;
         this.categoriaRepository = categoriaRepository;
+        this.eventProducer = eventProducer;
+        this.sseEmitterManager = sseEmitterManager;
     }
 
     @Transactional
@@ -179,16 +192,85 @@ public class IngredienteService {
             boolean cruzoumbAlerta = stockPrevio.compareTo(ingrediente.getUmbralAlerta()) >= 0
                     && stockNuevo.compareTo(ingrediente.getUmbralAlerta()) < 0;
 
+            boolean cruzoumbCritico = stockPrevio.compareTo(BigDecimal.ZERO) > 0
+                    && stockNuevo.compareTo(BigDecimal.ZERO) == 0;
+
             ingrediente.setStockActual(stockNuevo);
 
-            if (cruzoumbAlerta) {
+            if (cruzoumbCritico) {
+                ingrediente.setAlertaEnviada(true);
+                publicarEventoStockCritico(ingrediente);
+            } else if (cruzoumbAlerta) {
                 ingrediente.setAlertaEnviada(false);
+                publicarEventoStockBajo(ingrediente);
             }
 
             ingredienteRepository.save(ingrediente);
         }
 
         verificarYResetearAlertasPorPlato(platoId);
+    }
+
+    private void publicarEventoStockBajo(Ingrediente ingrediente) {
+        StockBajoEvent event = new StockBajoEvent(
+                ingrediente.getId(),
+                ingrediente.getNombre(),
+                ingrediente.getStockActual(),
+                ingrediente.getUmbralAlerta()
+        );
+        
+        eventProducer.publicarStockBajo(event);
+        
+        CartaEventResponse response = CartaEventResponse.stockBajo(
+                ingrediente.getId(),
+                ingrediente.getNombre(),
+                event
+        );
+        
+        sseEmitterManager.broadcast("stock_bajo", response);
+        
+        logger.info("[CARTA] Evento stock bajo publicado: {} - Stock: {} / Umbral: {}", 
+                ingrediente.getNombre(), ingrediente.getStockActual(), ingrediente.getUmbralAlerta());
+    }
+
+    private void publicarEventoStockCritico(Ingrediente ingrediente) {
+        StockBajoEvent event = new StockBajoEvent(
+                ingrediente.getId(),
+                ingrediente.getNombre(),
+                ingrediente.getStockActual(),
+                BigDecimal.ZERO
+        );
+        
+        eventProducer.publicarStockBajo(event);
+        
+        CartaEventResponse response = CartaEventResponse.stockCritico(
+                ingrediente.getId(),
+                ingrediente.getNombre(),
+                event
+        );
+        
+        sseEmitterManager.broadcast("stock_critico", response);
+        
+        logger.info("[CARTA] Evento stock crítico publicado: {} - Stock: {}", 
+                ingrediente.getNombre(), ingrediente.getStockActual());
+    }
+
+    private void publicarEventoStockRecuperado(Ingrediente ingrediente) {
+        CartaEventResponse response = CartaEventResponse.stockRecuperado(
+                ingrediente.getId(),
+                ingrediente.getNombre(),
+                new StockBajoEvent(
+                        ingrediente.getId(),
+                        ingrediente.getNombre(),
+                        ingrediente.getStockActual(),
+                        ingrediente.getUmbralAlerta()
+                )
+        );
+        
+        sseEmitterManager.broadcast("stock_recuperado", response);
+        
+        logger.info("[CARTA] Evento stock recuperado publicado: {} - Stock: {}", 
+                ingrediente.getNombre(), ingrediente.getStockActual());
     }
 
     public boolean verificarCruceUmbral(UUID ingredienteId) {
@@ -216,6 +298,7 @@ public class IngredienteService {
         if (stockRecuperado && Boolean.TRUE.equals(ingrediente.getAlertaEnviada())) {
             ingrediente.setAlertaEnviada(false);
             ingredienteRepository.save(ingrediente);
+            publicarEventoStockRecuperado(ingrediente);
             return true;
         }
 

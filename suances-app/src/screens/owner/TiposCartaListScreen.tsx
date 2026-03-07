@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Card, Button, EmptyState, Loading } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
@@ -74,7 +75,7 @@ export const TiposCartaListScreen: React.FC<TiposCartaListScreenProps> = ({
           style={styles.deleteButton}
           onPress={() => handleDelete(item.id, item.nombre)}
         >
-          <Text style={styles.deleteText}>🗑</Text>
+          <Ionicons name="trash-outline" size={20} color={colors.error} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Card>

@@ -21,4 +21,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, UUID> {
             LocalDate fecha,
             UUID franjaId,
             ReservaEstado estado);
+
+    List<Reserva> findByFechaAndFranja_IdAndEstadoNot(LocalDate fecha, UUID franjaId, ReservaEstado estado);
 }

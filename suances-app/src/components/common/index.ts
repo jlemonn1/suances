@@ -3,5 +3,7 @@ export { Input } from './Input';
 export { Card } from './Card';
 export { Loading } from './Loading';
 export { EmptyState } from './EmptyState';
+export { UnitConverter } from './UnitConverter';
+export { ConverterButton } from './ConverterButton';
 export { PlatoCard } from '../carta/PlatoCard';
 export { IngredienteItem } from '../carta/IngredienteItem';
