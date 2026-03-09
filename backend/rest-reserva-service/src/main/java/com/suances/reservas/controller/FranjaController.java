@@ -29,7 +29,7 @@ public class FranjaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','SERVICE')")
     public List<FranjaResponse> listar() {
         return franjaService.list();
     }

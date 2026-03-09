@@ -14,4 +14,8 @@ public interface BloqueoRepository extends JpaRepository<Bloqueo, UUID> {
             Mesa mesa,
             LocalDate fechaDesde,
             LocalDate fechaHasta);
+
+    List<Bloqueo> findByFechaDesdeLessThanEqualAndFechaHastaGreaterThanEqual(
+            LocalDate fechaDesde,
+            LocalDate fechaHasta);
 }

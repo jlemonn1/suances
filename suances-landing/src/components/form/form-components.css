@@ -1,0 +1,432 @@
+/* ========================================
+   FORM COMPONENTS - Minimalista y discreto
+   ======================================== */
+
+/* Base styles for form fields - Compacto */
+.form-field {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.form-field__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-light);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: var(--transition);
+}
+
+.form-field__icon {
+  color: var(--color-text-light);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.form-field.focused .form-field__icon {
+  color: var(--color-secondary);
+  opacity: 1;
+}
+
+.form-field__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.form-field__input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-family: inherit;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: var(--color-white);
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.form-field__input:hover {
+  border-color: #ccc;
+}
+
+.form-field__input:focus {
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px rgba(201, 169, 98, 0.1);
+}
+
+.form-field.focused .form-field__label {
+  color: var(--color-secondary);
+}
+
+.form-field.has-value .form-field__input {
+  background-color: #fcfcfc;
+}
+
+.form-field.error .form-field__input {
+  border-color: #ef4444;
+}
+
+.form-field__input::placeholder {
+  color: #bbb;
+  font-size: 14px;
+}
+
+/* Prefix for phone input */
+.form-field__prefix {
+  position: absolute;
+  left: 12px;
+  font-weight: 500;
+  color: var(--color-text-light);
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.form-field__input--with-prefix {
+  padding-left: 50px;
+}
+
+/* Checkmark indicator - Más discreto */
+.form-field__check {
+  position: absolute;
+  right: 12px;
+  color: #22c55e;
+  opacity: 0.8;
+}
+
+/* Error text */
+.form-field__error-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #ef4444;
+}
+
+/* Hint text */
+.form-field__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-light);
+  opacity: 0.8;
+}
+
+/* Date input specific */
+.form-field__input--date {
+  cursor: pointer;
+}
+
+.form-field__input--date::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.form-field__display-value {
+  position: absolute;
+  right: 12px;
+  font-size: 12px;
+  color: var(--color-secondary);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+/* ========================================
+   COMENSALES SELECTOR - Compacto
+   ======================================== */
+
+.comensales-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #e8e8e8;
+}
+
+.comensales-field.focused .comensales-selector {
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 2px rgba(201, 169, 98, 0.1);
+}
+
+.comensales-selector__btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-white);
+  color: var(--color-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border: 1px solid #e0e0e0;
+}
+
+.comensales-selector__btn:hover:not(:disabled) {
+  background: var(--color-secondary);
+  color: var(--color-white);
+  border-color: var(--color-secondary);
+}
+
+.comensales-selector__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+
+
+.comensales-selector__value {
+  text-align: center;
+  min-width: 60px;
+}
+
+.comensales-selector__number {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-primary);
+  line-height: 1;
+  font-family: var(--font-heading);
+}
+
+.comensales-selector__text {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-light);
+  margin-top: 2px;
+}
+
+.comensales-selector__quick-options {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+.comensales-selector__chip {
+  padding: 5px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 16px;
+  background: var(--color-white);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.comensales-selector__chip:hover {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.comensales-selector__chip.active {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: var(--color-white);
+}
+
+/* ========================================
+   HORA SELECTOR - Compacto
+   ======================================== */
+
+.hora-field {
+  margin-bottom: 16px;
+}
+
+.hora-selector__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.hora-selector__option {
+  padding: 10px 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: var(--color-white);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.hora-selector__option:hover {
+  border-color: var(--color-secondary);
+  background: rgba(201, 169, 98, 0.05);
+}
+
+.hora-selector__option.selected {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: var(--color-white);
+}
+
+.hora-selector__time {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hora-selector__label {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.hora-selector__selected {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(201, 169, 98, 0.08);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--color-text);
+  text-align: center;
+  border: 1px solid rgba(201, 169, 98, 0.15);
+}
+
+.hora-selector__selected strong {
+  color: var(--color-secondary);
+}
+
+.hora-selector__empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--color-text-light);
+  text-align: center;
+  font-size: 13px;
+}
+
+
+
+.hora-selector__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--color-text-light);
+  font-size: 13px;
+}
+
+.hora-selector__spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #e8e8e8;
+  border-top-color: var(--color-secondary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ========================================
+   ANIMATIONS - Más sutiles
+   ======================================== */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========================================
+   RESPONSIVE - Optimizado
+   ======================================== */
+
+/* Tablet */
+@media (max-width: 768px) {
+  .form-field {
+    margin-bottom: 14px;
+  }
+  
+  .comensales-selector {
+    padding: 8px 12px;
+    gap: 12px;
+  }
+  
+  .comensales-selector__btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .comensales-selector__number {
+    font-size: 24px;
+  }
+  
+  .hora-selector__grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  
+  .hora-selector__option {
+    padding: 8px 4px;
+  }
+  
+  .hora-selector__time {
+    font-size: 13px;
+  }
+}
+
+/* Móvil */
+@media (max-width: 480px) {
+  .form-field__label {
+    font-size: 11px;
+  }
+  
+  .form-field__input {
+    padding: 12px 10px;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .hora-selector__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .hora-selector__tabs {
+    gap: 6px;
+  }
+  
+  .hora-selector__tab {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .comensales-selector__quick-options {
+    gap: 4px;
+  }
+  
+  .comensales-selector__chip {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+}
+
+/* Desktop - Dos columnas para campos pequeños */
+@media (min-width: 769px) {
+  .reserva-form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  
+  .hora-field {
+    grid-column: 1 / -1;
+  }
+}

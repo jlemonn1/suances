@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  sala-db:
+    image: postgres:16
+    container_name: sala-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sala}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5433:5432"
+    volumes:
+      - sala-db-data:/var/lib/postgresql/data
+
+  sala-redis:
+    image: redis:7
+    container_name: sala-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6381:6379"
+
+  sala-service:
+    build: .
+    image: suances/sala-service:local
+    container_name: sala-service
+    depends_on:
+      - sala-db
+      - sala-redis
+    env_file:
+      - .env
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://sala-db:5432/${POSTGRES_DB:-sala}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATA_REDIS_HOST: sala-redis
+
+volumes:
+  sala-db-data:

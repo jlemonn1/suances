@@ -13,8 +13,9 @@ const createApiClient = (baseURL: string): AxiosInstance =>
 export const personalApi = createApiClient(API_CONFIG.PERSONAL_BASE_URL);
 export const cartaApi = createApiClient(API_CONFIG.CARTA_BASE_URL);
 export const reservasApi = createApiClient(API_CONFIG.RESERVAS_BASE_URL);
+export const salaApi = createApiClient(API_CONFIG.SALA_BASE_URL);
 
-const apiClients: AxiosInstance[] = [personalApi, cartaApi, reservasApi];
+const apiClients: AxiosInstance[] = [personalApi, cartaApi, reservasApi, salaApi];
 
 let authToken: string | null = null;
 
@@ -27,6 +28,7 @@ export const setAuthToken = (token: string | null) => {
       delete client.defaults.headers.common['Authorization'];
     }
   });
+  console.log('[API] Token configurado para todos los clientes API');
 };
 
 const attachRequestInterceptor = (client: AxiosInstance) => {

@@ -1,0 +1,51 @@
+server:
+  port: 8083
+  servlet:
+    context-path: /api/sala
+
+spring:
+  application:
+    name: sala-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sala}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 2000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+app:
+  jwt:
+    issuer: ${APP_JWT_ISSUER:personnel-service}
+    audience: ${APP_JWT_AUDIENCE:sala-service,reservas-service}
+    secret: ${APP_JWT_SECRET:SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+    allowed-roles: ${APP_JWT_ALLOWED_ROLES:OWNER,MANAGER,WAITER}
+  security:
+    bcrypt-strength: 12
+  service:
+    token: ${APP_SERVICE_TOKEN:suances-service-token-2024}
+  reservas:
+    url: ${APP_RESERVAS_URL:http://localhost:8087/api/reservas}
+  redis:
+    stream-input: ${APP_REDIS_STREAM_INPUT:reservas.events}
+    stream-output: ${APP_REDIS_STREAM_OUTPUT:sala.events}
+    consumer-group: ${APP_REDIS_CONSUMER_GROUP:sala-group}
+  comanda:
+    tiempo-maximo-preparacion-minutos: ${APP_COMANDA_TIEMPO_MAXIMO:45}
+    auto-cierre-cuenta-minutos: ${APP_COMANDA_AUTO_CIERRE:180}

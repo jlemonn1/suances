@@ -1,3 +1,4 @@
+import { MapPin, Clock, Phone, Mail } from 'lucide-react';
 import './InfoSection.css';
 
 export function InfoSection() {
@@ -6,7 +7,9 @@ export function InfoSection() {
       <div className="container">
         <div className="info-section__grid">
           <div className="info-section__card">
-            <div className="info-section__icon">📍</div>
+            <div className="info-section__icon">
+              <MapPin size={32} strokeWidth={1.5} />
+            </div>
             <h3 className="info-section__title">Dirección</h3>
             <p className="info-section__text">
               Calle Principal, 123<br />
@@ -14,7 +17,9 @@ export function InfoSection() {
             </p>
           </div>
           <div className="info-section__card">
-            <div className="info-section__icon">🕐</div>
+            <div className="info-section__icon">
+              <Clock size={32} strokeWidth={1.5} />
+            </div>
             <h3 className="info-section__title">Horario</h3>
             <p className="info-section__text">
               Lun-Jue: 13:00 - 23:00<br />
@@ -23,7 +28,9 @@ export function InfoSection() {
             </p>
           </div>
           <div className="info-section__card">
-            <div className="info-section__icon">📞</div>
+            <div className="info-section__icon">
+              <Phone size={32} strokeWidth={1.5} />
+            </div>
             <h3 className="info-section__title">Teléfono</h3>
             <p className="info-section__text">
               +34 900 123 456<br />
@@ -31,7 +38,9 @@ export function InfoSection() {
             </p>
           </div>
           <div className="info-section__card">
-            <div className="info-section__icon">✉️</div>
+            <div className="info-section__icon">
+              <Mail size={32} strokeWidth={1.5} />
+            </div>
             <h3 className="info-section__title">Email</h3>
             <p className="info-section__text">
               info@suances.com<br />

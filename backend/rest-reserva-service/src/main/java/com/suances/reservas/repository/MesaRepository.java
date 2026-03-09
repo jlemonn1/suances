@@ -15,4 +15,6 @@ public interface MesaRepository extends JpaRepository<Mesa, UUID> {
     Optional<Mesa> findBySalaAndNumero(Sala sala, Integer numero);
 
     List<Mesa> findByActivaTrueAndVisibleOnlineTrue();
+
+    List<Mesa> findByActivaTrue();
 }

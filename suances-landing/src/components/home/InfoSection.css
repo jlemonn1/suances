@@ -24,8 +24,11 @@
 }
 
 .info-section__icon {
-  font-size: 36px;
+  color: var(--color-secondary);
   margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .info-section__title {

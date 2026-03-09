@@ -11,6 +11,7 @@ import com.suances.reservas.dto.ReservaRequest;
 import com.suances.reservas.dto.ReservaResponse;
 import com.suances.reservas.dto.UpdateReservaRequest;
 import com.suances.reservas.event.ReservaEventProducer;
+import com.suances.reservas.event.ReservaUpdatedEvent;
 import com.suances.reservas.event.SseEmitterManager;
 import com.suances.reservas.exception.BusinessRuleException;
 import com.suances.reservas.exception.ResourceNotFoundException;
@@ -181,10 +182,25 @@ public class ReservaService {
         Reserva guardada = reservaRepository.save(reserva);
         ReservaResponse response = map(guardada);
         
+        // Crear evento específico para actualización con mesa anterior
+        ReservaUpdatedEvent updatedEvent = new ReservaUpdatedEvent(
+            java.util.UUID.randomUUID(),
+            response.id(),
+            response.mesaId(),
+            response.franjaId(),
+            response.fecha(),
+            response.codigo(),
+            response.estado().name(),
+            response.nombreCliente(),
+            response.telefono(),
+            (int) response.comensales(),
+            mesaCambio ? mesaAnterior.getId() : null
+        );
+        
         logger.info("[RESERVA] Actualizando reserva - id: {}, codigo: {}, cambios: mesa={}, fecha={}, faixa={}, comensales={}", 
             response.id(), response.codigo(), mesaCambio, fechaCambio, faixaCambio, capacidadCambio);
-        eventProducer.publish("reserva.updated", response);
-        sseEmitterManager.broadcast("reserva.updated", response);
+        eventProducer.publish("reserva.updated", updatedEvent);
+        sseEmitterManager.broadcast("reserva.updated", updatedEvent);
         logger.info("[RESERVA] Evento publicado: reserva.updated para reserva {}", response.codigo());
         
         return response;

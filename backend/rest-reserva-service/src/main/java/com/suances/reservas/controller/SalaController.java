@@ -29,7 +29,7 @@ public class SalaController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','SERVICE')")
     public List<SalaResponse> listar() {
         return salaService.list();
     }

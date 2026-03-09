@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
+import { SalaScreen } from '../screens/staff/SalaScreen';
 
 import { colors } from '../theme';
 
@@ -15,7 +16,9 @@ export const StaffNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'home';
-          if (route.name === 'Carta') {
+          if (route.name === 'Sala') {
+            iconName = focused ? 'grid' : 'grid-outline';
+          } else if (route.name === 'Carta') {
             iconName = focused ? 'restaurant' : 'restaurant-outline';
           } else if (route.name === 'Perfil') {
             iconName = focused ? 'person' : 'person-outline';
@@ -31,6 +34,11 @@ export const StaffNavigator = () => {
         headerTitleStyle: { fontWeight: '600' as const },
       })}
     >
+      <Tab.Screen 
+        name="Sala" 
+        component={SalaScreen}
+        options={{ title: 'Sala' }}
+      />
       <Tab.Screen 
         name="Carta" 
         component={CartaPublicaScreen}

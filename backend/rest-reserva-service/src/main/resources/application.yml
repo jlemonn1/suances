@@ -38,6 +38,8 @@ app:
     allowed-roles: ${APP_JWT_ALLOWED_ROLES:OWNER,MANAGER,WAITER,CUSTOMER}
   security:
     bcrypt-strength: 12
+  service:
+    token: ${APP_SERVICE_TOKEN:suances-service-token-2024}
   redis:
     stream-input: ${APP_REDIS_STREAM_INPUT:sala.events}
     stream-output: ${APP_REDIS_STREAM_OUTPUT:reservas.events}

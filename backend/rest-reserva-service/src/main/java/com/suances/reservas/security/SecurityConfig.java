@@ -27,13 +27,16 @@ public class SecurityConfig {
 
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final JwtAuthenticationFilter authenticationFilter;
+    private final ServiceTokenFilter serviceTokenFilter;
     private final int bcryptStrength;
 
     public SecurityConfig(JwtAuthenticationEntryPoint authenticationEntryPoint,
                           JwtAuthenticationFilter authenticationFilter,
+                          ServiceTokenFilter serviceTokenFilter,
                           @Value("${app.security.bcrypt-strength}") int bcryptStrength) {
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.authenticationFilter = authenticationFilter;
+        this.serviceTokenFilter = serviceTokenFilter;
         this.bcryptStrength = bcryptStrength;
     }
 
@@ -50,6 +53,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/public/reservas", "/public/reservas/consultar").permitAll()
                         .requestMatchers(HttpMethod.GET, "/public/reservas/**", "/public/reservas/franjas").permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(serviceTokenFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -3,21 +3,24 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CartaPublicaScreen } from '../../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../../screens/staff/PerfilScreen';
+import { SalaScreen } from '../../screens/staff/SalaScreen';
 import { colors } from '../../theme';
 
-type TabType = 'Carta' | 'Perfil';
+type TabType = 'Sala' | 'Carta' | 'Perfil';
 
 export const StaffView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('Carta');
+  const [activeTab, setActiveTab] = useState<TabType>('Sala');
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'Sala':
+        return <SalaScreen />;
       case 'Carta':
         return <CartaPublicaScreen />;
       case 'Perfil':
         return <PerfilScreen />;
       default:
-        return <CartaPublicaScreen />;
+        return <SalaScreen />;
     }
   };
 
@@ -30,6 +33,25 @@ export const StaffView: React.FC = () => {
 
       {/* Barra de navegación inferior personalizada */}
       <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'Sala' && styles.activeTab]}
+          onPress={() => setActiveTab('Sala')}
+        >
+          <Ionicons
+            name={activeTab === 'Sala' ? 'grid' : 'grid-outline'}
+            size={24}
+            color={activeTab === 'Sala' ? colors.accent : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'Sala' && styles.activeTabText,
+            ]}
+          >
+            Sala
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.tab, activeTab === 'Carta' && styles.activeTab]}
           onPress={() => setActiveTab('Carta')}

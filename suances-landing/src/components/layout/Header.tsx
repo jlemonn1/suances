@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { MessageCircle } from 'lucide-react';
 import './Header.css';
 
 interface HeaderProps {
@@ -16,6 +17,10 @@ export function Header({ onReservarClick }: HeaderProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleWhatsAppClick = () => {
+    window.open('https://wa.me/34653593891', '_blank');
+  };
+
   return (
     <header className={`header ${scrolled ? 'header--scrolled' : ''}`}>
       <div className="header__container">
@@ -28,9 +33,18 @@ export function Header({ onReservarClick }: HeaderProps) {
           <a href="#galeria" className="header__link">Galería</a>
           <a href="#contacto" className="header__link">Contacto</a>
         </nav>
-        <button className="btn btn-primary header__cta" onClick={onReservarClick}>
-          Reservar
-        </button>
+        <div className="header__actions">
+          <button 
+            className="header__whatsapp" 
+            onClick={handleWhatsAppClick}
+            aria-label="Contactar por WhatsApp"
+          >
+            <MessageCircle size={20} strokeWidth={1.5} />
+          </button>
+          <button className="btn btn-primary header__cta" onClick={onReservarClick}>
+            Reservar
+          </button>
+        </div>
       </div>
     </header>
   );

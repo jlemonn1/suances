@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useFranjas } from '../../hooks/useFranjas';
 import { useReservas } from '../../hooks/useReservas';
+import { FechaInput } from '../form/FechaInput';
+import { NombreInput } from '../form/NombreInput';
+import { TelefonoInput } from '../form/TelefonoInput';
+import { ComensalesSelector } from '../form/ComensalesSelector';
+import { HoraSelector } from '../form/HoraSelector';
 import type { ReservaResponse } from '../../types';
 import './ReservaForm.css';
 
@@ -15,7 +20,7 @@ export function ReservaForm({ onSuccess }: ReservaFormProps) {
   const [formData, setFormData] = useState({
     fecha: '',
     franjaId: '',
-    comensales: '2',
+    comensales: 2,
     nombre: '',
     telefono: '',
   });
@@ -23,9 +28,24 @@ export function ReservaForm({ onSuccess }: ReservaFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [reservaConfirmada, setReservaConfirmada] = useState<ReservaResponse | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleFechaChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, fecha: value }));
+  };
+
+  const handleComensalesChange = (value: number) => {
+    setFormData((prev) => ({ ...prev, comensales: value }));
+  };
+
+  const handleFranjaChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, franjaId: value }));
+  };
+
+  const handleNombreChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, nombre: value }));
+  };
+
+  const handleTelefonoChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, telefono: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +54,7 @@ export function ReservaForm({ onSuccess }: ReservaFormProps) {
       const reserva = await crearReserva({
         fecha: formData.fecha,
         franjaId: formData.franjaId,
-        comensales: parseInt(formData.comensales),
+        comensales: formData.comensales,
         nombre: formData.nombre,
         telefono: formData.telefono,
       });
@@ -70,80 +90,42 @@ export function ReservaForm({ onSuccess }: ReservaFormProps) {
 
   return (
     <form className="reserva-form" onSubmit={handleSubmit}>
+      {/* Fecha y Comensales */}
       <div className="reserva-form__row">
-        <div className="input-group">
-          <label htmlFor="fecha">Fecha</label>
-          <input
-            type="date"
-            id="fecha"
-            name="fecha"
-            value={formData.fecha}
-            onChange={handleChange}
-            min={today}
-            required
-          />
-        </div>
-        <div className="input-group">
-          <label htmlFor="comensales">Comensales</label>
-          <select
-            id="comensales"
-            name="comensales"
-            value={formData.comensales}
-            onChange={handleChange}
-            required
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <option key={n} value={n}>
-                {n} {n === 1 ? 'persona' : 'personas'}
-              </option>
-            ))}
-            <option value="9">9+ (contactar)</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="input-group">
-        <label htmlFor="franjaId">Hora</label>
-        <select
-          id="franjaId"
-          name="franjaId"
-          value={formData.franjaId}
-          onChange={handleChange}
-          disabled={loadingFranjas}
+        <FechaInput
+          value={formData.fecha}
+          onChange={handleFechaChange}
+          min={today}
           required
-        >
-          <option value="">Selecciona una hora</option>
-          {franjas.map((franja) => (
-            <option key={franja.id} value={franja.id}>
-              {franja.nombre} ({franja.horaInicio} - {franja.horaFin})
-            </option>
-          ))}
-        </select>
+        />
+        <ComensalesSelector
+          value={formData.comensales}
+          onChange={handleComensalesChange}
+          min={1}
+          max={12}
+        />
       </div>
 
+      {/* Selector de Hora */}
+      <HoraSelector
+        franjas={franjas}
+        value={formData.franjaId}
+        onChange={handleFranjaChange}
+        loading={loadingFranjas}
+      />
+
+      {/* Nombre y Teléfono */}
       <div className="reserva-form__row">
-        <div className="input-group">
-          <label htmlFor="nombre">Nombre completo</label>
-          <input
-            type="text"
-            id="nombre"
-            name="nombre"
-            value={formData.nombre}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="input-group">
-          <label htmlFor="telefono">Teléfono</label>
-          <input
-            type="tel"
-            id="telefono"
-            name="telefono"
-            value={formData.telefono}
-            onChange={handleChange}
-            required
-          />
-        </div>
+        <NombreInput
+          value={formData.nombre}
+          onChange={handleNombreChange}
+          required
+        />
+        <TelefonoInput
+          value={formData.telefono}
+          onChange={handleTelefonoChange}
+          required
+        />
       </div>
 
       {error && <div className="reserva-form__error">{error}</div>}
@@ -153,7 +135,14 @@ export function ReservaForm({ onSuccess }: ReservaFormProps) {
         className="btn btn-primary reserva-form__submit"
         disabled={loadingReserva}
       >
-        {loadingReserva ? 'Confirmando...' : 'Confirmar Reserva'}
+        {loadingReserva ? (
+          <>
+            <span className="reserva-form__spinner"></span>
+            Confirmando...
+          </>
+        ) : (
+          'Confirmar Reserva'
+        )}
       </button>
     </form>
   );
