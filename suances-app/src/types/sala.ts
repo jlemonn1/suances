@@ -46,6 +46,7 @@ export interface Pedido {
   horaPedido: string;
   horaServido?: string;
   horaListo?: string;
+  advertenciaStock?: boolean;
 }
 
 export interface MesaOperativa {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -6,9 +7,27 @@ import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
 import { SalaScreen } from '../screens/staff/SalaScreen';
 
-import { colors } from '../theme';
+import { colors, spacing, typography } from '../theme';
+import { useSalaStore } from '../store/salaStore';
 
 const Tab = createBottomTabNavigator();
+
+// Componente del título del header con indicador de conexión SSE
+const HeaderTitle: React.FC<{ title: string }> = ({ title }) => {
+  const { sseConnected } = useSalaStore();
+
+  return (
+    <View style={styles.headerContainer}>
+      <Text style={styles.headerTitle}>{title}</Text>
+      {!sseConnected && (
+        <View style={styles.offlineIndicator}>
+          <View style={styles.ledRed} />
+          <Text style={styles.offlineText}>canal en vivo caído</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export const StaffNavigator = () => {
   return (
@@ -37,18 +56,61 @@ export const StaffNavigator = () => {
       <Tab.Screen 
         name="Sala" 
         component={SalaScreen}
-        options={{ title: 'Sala' }}
+        options={{ 
+          headerTitle: () => <HeaderTitle title="Sala" />,
+          title: 'Sala' 
+        }}
       />
       <Tab.Screen 
         name="Carta" 
         component={CartaPublicaScreen}
-        options={{ title: 'Carta' }}
+        options={{ 
+          headerTitle: () => <HeaderTitle title="Carta" />,
+          title: 'Carta' 
+        }}
       />
       <Tab.Screen 
         name="Perfil" 
         component={PerfilScreen}
-        options={{ title: 'Perfil' }}
+        options={{ 
+          headerTitle: () => <HeaderTitle title="Perfil" />,
+          title: 'Perfil' 
+        }}
       />
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: colors.surface,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+    backgroundColor: 'rgba(244, 67, 54, 0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  ledRed: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.error,
+    marginRight: 6,
+  },
+  offlineText: {
+    color: colors.errorLight,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+});

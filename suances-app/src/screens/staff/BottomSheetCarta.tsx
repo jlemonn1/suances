@@ -13,9 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { useSalaStore } from '../../store/salaStore';
-import { usePlatoStore } from '../../store/platoStore';
-import { cartaService } from '../../services/cartaService';
-import type { PlatoResponse } from '../../types/plato';
+import { salaService } from '../../services/salaService';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
+import type { PlatoOperativo } from '../../types/carta';
 
 interface BottomSheetCartaProps {
   visible: boolean;
@@ -28,14 +28,23 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
   comandaId,
   onClose,
 }) => {
-  const [platos, setPlatos] = useState<PlatoResponse[]>([]);
+  const [platos, setPlatos] = useState<PlatoOperativo[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [selectedPlato, setSelectedPlato] = useState<PlatoResponse | null>(null);
+  const [selectedPlato, setSelectedPlato] = useState<PlatoOperativo | null>(null);
   const [cantidad, setCantidad] = useState(1);
   const [notas, setNotas] = useState('');
 
   const { agregarPedido, loadingAccion } = useSalaStore();
+
+  // Conectar a SSE para actualizaciones en tiempo real de la carta
+  useCartaSSE({ 
+    enabled: visible,
+    onPlatoChanged: () => {
+      console.log('[BottomSheetCarta] Recargando platos por cambio SSE');
+      loadPlatos();
+    }
+  });
 
   useEffect(() => {
     if (visible) {
@@ -46,16 +55,17 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
   const loadPlatos = async () => {
     setLoading(true);
     try {
-      const data = await cartaService.getPlatos(true);
-      setPlatos(data.filter((p) => p.activo));
+      // Obtener platos operativos desde sala-service
+      const platosOperativos = await salaService.getPlatosOperativos();
+      setPlatos(platosOperativos.filter((p) => p.disponible));
     } catch (error) {
-      console.error('Error loading platos:', error);
+      console.error('Error loading platos desde sala:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectPlato = (plato: PlatoResponse) => {
+  const handleSelectPlato = (plato: PlatoOperativo) => {
     setSelectedPlato(plato);
     setCantidad(1);
     setNotas('');
@@ -65,14 +75,31 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
     if (!selectedPlato) return;
 
     try {
-      await agregarPedido(comandaId, {
-        platoId: selectedPlato.id,
+      const pedidosConStockBajo = await agregarPedido(comandaId, {
+        platoId: selectedPlato.platoId,
+        nombrePlato: selectedPlato.nombre,
         cantidad,
+        tipoRonda: 'PRIMERO', // TODO: Determinar según categoría
         notas: notas.trim() || undefined,
       });
-      Alert.alert('Éxito', 'Pedido agregado');
-      setSelectedPlato(null);
-      onClose();
+      
+      // Mostrar advertencia si hay stock bajo
+      if (pedidosConStockBajo && pedidosConStockBajo.length > 0) {
+        Alert.alert(
+          '⚠️ Stock Bajo',
+          `El plato "${selectedPlato.nombre}" tiene stock limitado. El pedido se ha registrado, pero verifique disponibilidad.`,
+          [
+            { text: 'Entendido', onPress: () => {
+              setSelectedPlato(null);
+              onClose();
+            }}
+          ]
+        );
+      } else {
+        Alert.alert('Éxito', 'Pedido agregado');
+        setSelectedPlato(null);
+        onClose();
+      }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Error al agregar pedido');
     }
@@ -84,18 +111,21 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
       )
     : platos;
 
-  const renderPlato = ({ item }: { item: PlatoResponse }) => (
+  const renderPlato = ({ item }: { item: PlatoOperativo }) => (
     <TouchableOpacity
       style={[
         styles.platoItem,
-        selectedPlato?.id === item.id && styles.platoItemSelected,
+        selectedPlato?.platoId === item.platoId && styles.platoItemSelected,
       ]}
       onPress={() => handleSelectPlato(item)}
     >
       <View style={styles.platoInfo}>
         <Text style={styles.platoNombre}>{item.nombre}</Text>
-        {item.categoria && (
-          <Text style={styles.platoCategoria}>{item.categoria.nombre}</Text>
+        {item.categoriaNombre && (
+          <Text style={styles.platoCategoria}>{item.categoriaNombre}</Text>
+        )}
+        {item.stockBajo && (
+          <Text style={styles.stockBajo}>Stock bajo</Text>
         )}
       </View>
       <Text style={styles.platoPrecio}>{item.precioVenta.toFixed(2)}€</Text>
@@ -137,7 +167,7 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
 
                   <FlatList
                     data={filteredPlatos}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item) => item.platoId}
                     renderItem={renderPlato}
                     contentContainerStyle={styles.platoList}
                     showsVerticalScrollIndicator={false}
@@ -157,6 +187,9 @@ export const BottomSheetCarta: React.FC<BottomSheetCartaProps> = ({
                     <Text style={styles.selectedPrecio}>
                       {selectedPlato.precioVenta.toFixed(2)}€ unidad
                     </Text>
+                    {selectedPlato.stockBajo && (
+                      <Text style={styles.stockBajoWarning}>⚠️ Stock bajo</Text>
+                    )}
                   </View>
 
                   <View style={styles.cantidadContainer}>
@@ -308,6 +341,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.accent,
   },
+  stockBajo: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: 2,
+  },
   selectedContainer: {
     padding: spacing.lg,
     paddingTop: 0,
@@ -325,6 +363,11 @@ const styles = StyleSheet.create({
   selectedPrecio: {
     ...typography.body,
     color: colors.textSecondary,
+  },
+  stockBajoWarning: {
+    ...typography.bodySmall,
+    color: colors.error,
+    marginTop: spacing.xs,
   },
   label: {
     ...typography.bodySmall,

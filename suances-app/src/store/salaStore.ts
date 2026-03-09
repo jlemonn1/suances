@@ -10,6 +10,7 @@ import type {
   CrearComandaRequest,
   AgregarPedidoRequest,
   CobrarRequest,
+  Pedido,
 } from '../types/sala';
 
 interface SalaState {
@@ -18,6 +19,10 @@ interface SalaState {
   mesaSeleccionada: MesaOperativa | null;
   loadingMesas: boolean;
   errorMesas: string | null;
+
+  // Estado de conexión SSE (canal en vivo)
+  sseConnected: boolean;
+  setSseConnected: (connected: boolean) => void;
 
   comandas: Comanda[];
   comandaActiva: ComandaDetalle | null;
@@ -36,7 +41,7 @@ interface SalaState {
   fetchCuenta: (comandaId: string) => Promise<void>;
 
   crearComanda: (data: CrearComandaRequest) => Promise<Comanda>;
-  agregarPedido: (comandaId: string, data: AgregarPedidoRequest) => Promise<void>;
+  agregarPedido: (comandaId: string, data: AgregarPedidoRequest) => Promise<Pedido[]>;
   cambiarEstadoPedido: (pedidoId: string, estado: string) => Promise<void>;
   cerrarComanda: (comandaId: string, tipoPago: string) => Promise<void>;
   cobrarComanda: (comandaId: string, data: CobrarRequest) => Promise<CobroResponse>;
@@ -55,6 +60,10 @@ export const useSalaStore = create<SalaState>((set, get) => ({
   mesaSeleccionada: null,
   loadingMesas: false,
   errorMesas: null,
+
+  // Estado de conexión SSE (canal en vivo)
+  sseConnected: true, // Por defecto asumimos conectado
+  setSseConnected: (connected) => set({ sseConnected: connected }),
 
   comandas: [],
   comandaActiva: null,
@@ -192,10 +201,14 @@ export const useSalaStore = create<SalaState>((set, get) => ({
   agregarPedido: async (comandaId, data) => {
     set({ loadingAccion: true, errorAccion: null });
     try {
-      await salaService.agregarPedido(comandaId, data);
+      const pedidosCreados = await salaService.agregarPedido(comandaId, data);
       await get().fetchComanda(comandaId);
       await get().fetchMesas();
       set({ loadingAccion: false });
+      
+      // Verificar si algún pedido tiene advertencia de stock
+      const pedidosConStockBajo = pedidosCreados.filter(p => p.advertenciaStock);
+      return pedidosConStockBajo;
     } catch (error: any) {
       set({
         errorAccion: error.response?.data?.message || 'Error al agregar pedido',

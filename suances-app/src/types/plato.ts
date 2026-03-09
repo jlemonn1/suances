@@ -38,6 +38,9 @@ export interface PlatoResponse {
   margen: number | null;
   contadorPedidos: number;
   activo: boolean;
+  disponible?: boolean;
+  stockDisponible?: number | null;
+  stockBajo?: boolean;
   createdAt: string;
   imagenes: PlatoImagen[];
   categoria?: CategoriaResponse;

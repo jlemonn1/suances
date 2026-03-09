@@ -68,6 +68,43 @@ public class SalaEventProducer {
         }
     }
 
+    public void publicarItemCreado(UUID comandaId, com.suances.sala.domain.model.ItemComanda item) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("itemId", item.getId().toString());
+            data.put("comandaId", comandaId.toString());
+            data.put("platoId", item.getPlatoId().toString());
+            data.put("nombrePlato", item.getNombrePlato());
+            data.put("cantidad", item.getCantidad());
+            data.put("tipoRonda", item.getTipoRonda().name());
+            data.put("horaPedido", item.getHoraPedido().toString());
+
+            publicarEvento("sala.item.creado", data);
+            log.info("Evento item creado publicado para carta-service: {}", item.getId());
+        } catch (Exception e) {
+            log.error("Error al publicar evento item creado", e);
+        }
+    }
+
+    public void publicarItemEnviadoACocina(UUID comandaId, com.suances.sala.domain.model.ItemComanda item) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("itemId", item.getId().toString());
+            data.put("comandaId", comandaId.toString());
+            data.put("platoId", item.getPlatoId().toString());
+            data.put("nombrePlato", item.getNombrePlato());
+            data.put("cantidad", item.getCantidad());
+            data.put("tipoRonda", item.getTipoRonda().name());
+            data.put("horaPedido", item.getHoraPedido().toString());
+            data.put("horaEnvioCocina", item.getHoraEnvioCocina().toString());
+
+            publicarEvento("sala.item.enviado_cocina", data);
+            log.info("Evento item enviado a cocina publicado: {}", item.getId());
+        } catch (Exception e) {
+            log.error("Error al publicar evento item enviado a cocina", e);
+        }
+    }
+
     public void publicarCuentaCerrada(Comanda comanda, com.suances.sala.domain.dto.response.TicketCobroResponse ticket) {
         try {
             ObjectNode data = objectMapper.createObjectNode();

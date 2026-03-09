@@ -179,15 +179,23 @@ export const PlatoWizardScreen: React.FC<PlatoWizardScreenProps> = ({
         await cartaService.agregarImagen(plato.id, url);
       }
 
-      if (selectedTipos.length > 0) {
-        for (const tipoId of selectedTipos) {
-          const tipo = await cartaService.getTipoCarta(tipoId);
-          const currentPlatoIds = tipo.platos?.map((p: any) => p.id) || [];
-          if (!currentPlatoIds.includes(plato.id)) {
-            console.log('Asociando plato a tipoCarta:', tipoId, 'platos:', [...currentPlatoIds, plato.id]);
-            await cartaService.asociarPlatosATipoCarta(tipoId, [...currentPlatoIds, plato.id]);
-          }
-        }
+      // Obtener tipos de carta previos si estamos editando
+      const previousTipos = editing && initialData?.tiposCarta 
+        ? initialData.tiposCarta.map((t: any) => t.id) 
+        : [];
+
+      // Agregar plato a tipos de carta NUEVOS seleccionados
+      const tiposToAdd = selectedTipos.filter(id => !previousTipos.includes(id));
+      for (const tipoId of tiposToAdd) {
+        console.log('Agregando plato a tipoCarta:', tipoId);
+        await cartaService.agregarPlatoATipoCarta(tipoId, plato.id);
+      }
+
+      // Eliminar plato de tipos de carta DESSELECCIONADOS
+      const tiposToRemove = previousTipos.filter((id: string) => !selectedTipos.includes(id));
+      for (const tipoId of tiposToRemove) {
+        console.log('Eliminando plato de tipoCarta:', tipoId);
+        await cartaService.eliminarPlatoDeTipoCarta(tipoId, plato.id);
       }
 
       if (editing) {

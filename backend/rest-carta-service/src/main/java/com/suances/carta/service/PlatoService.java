@@ -3,6 +3,10 @@ package com.suances.carta.service;
 import com.suances.carta.domain.model.Categoria;
 import com.suances.carta.domain.model.Plato;
 import com.suances.carta.domain.model.PlatoImagen;
+import com.suances.carta.domain.model.TipoCarta;
+import com.suances.carta.dto.event.PlatoChangedEvent;
+import com.suances.carta.dto.event.PlatoDisponibilidadEvent;
+import com.suances.carta.dto.event.TipoCartaPlatosChangedEvent;
 import com.suances.carta.dto.request.PlatoRequest;
 import com.suances.carta.dto.request.PlatoImagenRequest;
 import com.suances.carta.dto.response.PlatoResponse;
@@ -10,6 +14,7 @@ import com.suances.carta.exception.ResourceNotFoundException;
 import com.suances.carta.repository.CategoriaRepository;
 import com.suances.carta.repository.PlatoRepository;
 import com.suances.carta.repository.PlatoImagenRepository;
+import com.suances.carta.repository.TipoCartaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -22,12 +27,16 @@ public class PlatoService {
     private final PlatoRepository platoRepository;
     private final PlatoImagenRepository platoImagenRepository;
     private final CategoriaRepository categoriaRepository;
+    private final TipoCartaRepository tipoCartaRepository;
+    private final EventProducer eventProducer;
 
     public PlatoService(PlatoRepository platoRepository, PlatoImagenRepository platoImagenRepository,
-            CategoriaRepository categoriaRepository) {
+            CategoriaRepository categoriaRepository, TipoCartaRepository tipoCartaRepository, EventProducer eventProducer) {
         this.platoRepository = platoRepository;
         this.platoImagenRepository = platoImagenRepository;
         this.categoriaRepository = categoriaRepository;
+        this.tipoCartaRepository = tipoCartaRepository;
+        this.eventProducer = eventProducer;
     }
 
     @Transactional
@@ -46,6 +55,20 @@ public class PlatoService {
         }
 
         Plato saved = platoRepository.save(plato);
+
+        // Publicar evento de plato creado (sin asociar a tipos de carta)
+        PlatoChangedEvent event = new PlatoChangedEvent(
+                "carta.plato.created",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getDescripcion(),
+                saved.getPrecioVenta(),
+                saved.getCategoria() != null ? saved.getCategoria().getId() : null,
+                saved.getCategoria() != null ? saved.getCategoria().getNombre() : null,
+                saved.getActivo()
+        );
+        eventProducer.publicarPlatoCreado(event);
+
         return PlatoResponse.fromEntity(saved);
     }
 
@@ -85,6 +108,20 @@ public class PlatoService {
         }
 
         Plato saved = platoRepository.save(plato);
+
+        // Publicar evento de plato actualizado
+        PlatoChangedEvent event = new PlatoChangedEvent(
+                "carta.plato.updated",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getDescripcion(),
+                saved.getPrecioVenta(),
+                saved.getCategoria() != null ? saved.getCategoria().getId() : null,
+                saved.getCategoria() != null ? saved.getCategoria().getNombre() : null,
+                saved.getActivo()
+        );
+        eventProducer.publicarPlatoActualizado(event);
+
         return PlatoResponse.fromEntity(saved);
     }
 
@@ -93,7 +130,31 @@ public class PlatoService {
         Plato plato = platoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Plato no encontrado: " + id));
         plato.setActivo(false);
-        platoRepository.save(plato);
+        Plato saved = platoRepository.save(plato);
+
+        // Publicar evento de disponibilidad (plato no disponible)
+        PlatoDisponibilidadEvent event = new PlatoDisponibilidadEvent(
+                saved.getId(),
+                saved.getNombre(),
+                false
+        );
+        eventProducer.publicarPlatoDisponibilidad(event);
+    }
+
+    @Transactional
+    public void activar(UUID id) {
+        Plato plato = platoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Plato no encontrado: " + id));
+        plato.setActivo(true);
+        Plato saved = platoRepository.save(plato);
+
+        // Publicar evento de disponibilidad (plato disponible)
+        PlatoDisponibilidadEvent event = new PlatoDisponibilidadEvent(
+                saved.getId(),
+                saved.getNombre(),
+                true
+        );
+        eventProducer.publicarPlatoDisponibilidad(event);
     }
 
     @Transactional

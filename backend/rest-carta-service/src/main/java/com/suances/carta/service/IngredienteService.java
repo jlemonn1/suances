@@ -67,6 +67,20 @@ public class IngredienteService {
         }
 
         Ingrediente saved = ingredienteRepository.save(ingrediente);
+
+        // Publicar evento de ingrediente creado
+        com.suances.carta.dto.event.IngredienteChangedEvent event = 
+            new com.suances.carta.dto.event.IngredienteChangedEvent(
+                "carta.ingrediente.created",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getUnidadMedida(),
+                saved.getStockActual(),
+                saved.getUmbralAlerta(),
+                saved.getActivo()
+            );
+        eventProducer.publicarIngredienteCreado(event);
+
         return IngredienteResponse.fromEntity(saved);
     }
 
@@ -94,6 +108,7 @@ public class IngredienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado: " + id));
 
         boolean precioCambio = !ingrediente.getPrecioPorUnidad().equals(request.getPrecioPorUnidad());
+        BigDecimal stockAnterior = ingrediente.getStockActual();
 
         ingrediente.setNombre(request.getNombre());
         ingrediente.setUnidadMedida(request.getUnidadMedida());
@@ -111,6 +126,34 @@ public class IngredienteService {
 
         Ingrediente saved = ingredienteRepository.save(ingrediente);
 
+        // Publicar evento de ingrediente actualizado
+        com.suances.carta.dto.event.IngredienteChangedEvent event = 
+            new com.suances.carta.dto.event.IngredienteChangedEvent(
+                "carta.ingrediente.updated",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getUnidadMedida(),
+                saved.getStockActual(),
+                saved.getUmbralAlerta(),
+                saved.getActivo()
+            );
+        eventProducer.publicarIngredienteActualizado(event);
+
+        // Publicar evento de cambio de stock si cambió
+        if (!stockAnterior.equals(saved.getStockActual())) {
+            com.suances.carta.dto.event.IngredienteChangedEvent stockEvent = 
+                new com.suances.carta.dto.event.IngredienteChangedEvent(
+                    "carta.stock.changed",
+                    saved.getId(),
+                    saved.getNombre(),
+                    saved.getUnidadMedida(),
+                    saved.getStockActual(),
+                    saved.getUmbralAlerta(),
+                    saved.getActivo()
+                );
+            eventProducer.publicarStockChanged(stockEvent);
+        }
+
         if (precioCambio) {
             recalcularPorIngrediente(id);
         }
@@ -125,7 +168,41 @@ public class IngredienteService {
         Ingrediente ingrediente = ingredienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado: " + id));
         ingrediente.setActivo(false);
-        ingredienteRepository.save(ingrediente);
+        Ingrediente saved = ingredienteRepository.save(ingrediente);
+
+        // Publicar evento de ingrediente actualizado (desactivado)
+        com.suances.carta.dto.event.IngredienteChangedEvent event = 
+            new com.suances.carta.dto.event.IngredienteChangedEvent(
+                "carta.ingrediente.updated",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getUnidadMedida(),
+                saved.getStockActual(),
+                saved.getUmbralAlerta(),
+                saved.getActivo()
+            );
+        eventProducer.publicarIngredienteActualizado(event);
+    }
+
+    @Transactional
+    public void activar(UUID id) {
+        Ingrediente ingrediente = ingredienteRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Ingrediente no encontrado: " + id));
+        ingrediente.setActivo(true);
+        Ingrediente saved = ingredienteRepository.save(ingrediente);
+
+        // Publicar evento de ingrediente actualizado (activado)
+        com.suances.carta.dto.event.IngredienteChangedEvent event = 
+            new com.suances.carta.dto.event.IngredienteChangedEvent(
+                "carta.ingrediente.updated",
+                saved.getId(),
+                saved.getNombre(),
+                saved.getUnidadMedida(),
+                saved.getStockActual(),
+                saved.getUmbralAlerta(),
+                saved.getActivo()
+            );
+        eventProducer.publicarIngredienteActualizado(event);
     }
 
     @Transactional
@@ -204,6 +281,19 @@ public class IngredienteService {
                 ingrediente.setAlertaEnviada(false);
                 publicarEventoStockBajo(ingrediente);
             }
+
+            // Siempre publicar evento de stock changed
+            com.suances.carta.dto.event.IngredienteChangedEvent stockEvent = 
+                new com.suances.carta.dto.event.IngredienteChangedEvent(
+                    "carta.stock.changed",
+                    ingrediente.getId(),
+                    ingrediente.getNombre(),
+                    ingrediente.getUnidadMedida(),
+                    ingrediente.getStockActual(),
+                    ingrediente.getUmbralAlerta(),
+                    ingrediente.getActivo()
+                );
+            eventProducer.publicarStockChanged(stockEvent);
 
             ingredienteRepository.save(ingrediente);
         }

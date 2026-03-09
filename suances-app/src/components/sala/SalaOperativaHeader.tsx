@@ -37,19 +37,27 @@ export const SalaOperativaHeader: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Formatear hora actual
-  const horaFormateada = horaActual.toLocaleTimeString('es-ES', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  // Función para formatear hora sin segundos
+  const formatearHora = (fecha: Date): string => {
+    const horas = fecha.getHours().toString().padStart(2, '0');
+    const minutos = fecha.getMinutes().toString().padStart(2, '0');
+    return `${horas}:${minutos}`;
+  };
+
+  // Función para formatear fecha (7-JUL)
+  const formatearFecha = (fecha: Date): string => {
+    const meses = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    const dia = fecha.getDate();
+    const mes = meses[fecha.getMonth()];
+    return `${dia}-${mes}`;
+  };
+
+  const horaFormateada = formatearHora(horaActual);
+  const fechaFormateada = formatearFecha(horaActual);
 
   // Detectar franja según hora actual
   const getFranjaActual = (): FranjaHoraria | null => {
-    const horaStr = horaActual.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
+    const horaStr = formatearHora(horaActual);
     
     // Buscar franja que contenga la hora actual
     const franjaEnCurso = franjas.find(f => {
@@ -93,9 +101,11 @@ export const SalaOperativaHeader: React.FC<Props> = ({
     <View style={styles.container}>
       {/* Primera línea: Hora, Franja, Toggle */}
       <View style={styles.headerRow}>
-        <View style={styles.horaFranjaContainer}>
+        <View style={styles.horaFechaContainer}>
           <Text style={styles.horaText}>{horaFormateada}</Text>
-          <Text style={styles.separator}>|</Text>
+          <Text style={styles.fechaText}>{fechaFormateada}</Text>
+        </View>
+        <View style={styles.franjaContainer}>
           {franjaActual ? (
             <Text style={styles.franjaText}>
               {franjaActual.nombre} ({franjaActual.horaInicio}-{franjaActual.horaFin})
@@ -155,20 +165,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  horaFranjaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  horaFechaContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginRight: spacing.md,
   },
   horaText: {
     ...typography.h3,
     color: colors.text,
     fontWeight: '700',
+    lineHeight: 28,
   },
-  separator: {
-    ...typography.h3,
+  fechaText: {
+    ...typography.caption,
     color: colors.textSecondary,
-    marginHorizontal: spacing.sm,
+    fontWeight: '600',
+    marginTop: -2,
+  },
+  franjaContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   franjaText: {
     ...typography.bodySmall,

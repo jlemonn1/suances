@@ -42,8 +42,11 @@ app:
     token: ${APP_SERVICE_TOKEN:suances-service-token-2024}
   reservas:
     url: ${APP_RESERVAS_URL:http://localhost:8087/api/reservas}
+  carta:
+    url: ${APP_CARTA_URL:http://localhost:8081/api/carta}
   redis:
     stream-input: ${APP_REDIS_STREAM_INPUT:reservas.events}
+    stream-carta-input: ${APP_REDIS_STREAM_CARTA_INPUT:carta.events}
     stream-output: ${APP_REDIS_STREAM_OUTPUT:sala.events}
     consumer-group: ${APP_REDIS_CONSUMER_GROUP:sala-group}
   comanda:

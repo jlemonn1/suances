@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/mesas/events").permitAll()
+                        .requestMatchers("/carta/events").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

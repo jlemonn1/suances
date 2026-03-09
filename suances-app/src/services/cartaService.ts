@@ -76,6 +76,16 @@ export const cartaService = {
     return response.data;
   },
 
+  agregarPlatoATipoCarta: async (tipoCartaId: string, platoId: string): Promise<TipoCartaResponse> => {
+    const response = await cartaApi.post<TipoCartaResponse>(`/tipos-carta/${tipoCartaId}/platos/${platoId}`);
+    return response.data;
+  },
+
+  eliminarPlatoDeTipoCarta: async (tipoCartaId: string, platoId: string): Promise<TipoCartaResponse> => {
+    const response = await cartaApi.delete<TipoCartaResponse>(`/tipos-carta/${tipoCartaId}/platos/${platoId}`);
+    return response.data;
+  },
+
   getCartaActiva: async (): Promise<TipoCartaResponse> => {
     const response = await cartaApi.get<TipoCartaResponse>('/tipos-carta/carta/activa');
     return response.data;

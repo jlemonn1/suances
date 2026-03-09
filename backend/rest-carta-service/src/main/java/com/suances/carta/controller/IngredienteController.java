@@ -53,6 +53,13 @@ public class IngredienteController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/activar")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<Void> activar(@PathVariable UUID id) {
+        ingredienteService.activar(id);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{id}/distribuidores/{distribuidorId}")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> asociarDistribuidor(

@@ -20,10 +20,12 @@ public class TipoCartaService {
 
     private final TipoCartaRepository tipoCartaRepository;
     private final PlatoRepository platoRepository;
+    private final EventProducer eventProducer;
 
-    public TipoCartaService(TipoCartaRepository tipoCartaRepository, PlatoRepository platoRepository) {
+    public TipoCartaService(TipoCartaRepository tipoCartaRepository, PlatoRepository platoRepository, EventProducer eventProducer) {
         this.tipoCartaRepository = tipoCartaRepository;
         this.platoRepository = platoRepository;
+        this.eventProducer = eventProducer;
     }
 
     @Transactional
@@ -89,7 +91,70 @@ public class TipoCartaService {
         tipoCarta.getPlatos().addAll(platos);
 
         TipoCarta saved = tipoCartaRepository.save(tipoCarta);
+
+        // Publicar evento de actualización
+        publicarEventoTipoCartaPlatosActualizados(saved);
+
         return TipoCartaResponse.fromEntity(saved);
+    }
+
+    @Transactional
+    public TipoCartaResponse agregarPlato(UUID tipoCartaId, UUID platoId) {
+        TipoCarta tipoCarta = tipoCartaRepository.findById(tipoCartaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de carta no encontrado: " + tipoCartaId));
+
+        Plato plato = platoRepository.findById(platoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plato no encontrado: " + platoId));
+
+        // Verificar si el plato ya está asociado
+        if (tipoCarta.getPlatos().stream().anyMatch(p -> p.getId().equals(platoId))) {
+            return TipoCartaResponse.fromEntity(tipoCarta);
+        }
+
+        tipoCarta.getPlatos().add(plato);
+        TipoCarta saved = tipoCartaRepository.save(tipoCarta);
+
+        // Publicar evento de actualización
+        publicarEventoTipoCartaPlatosActualizados(saved);
+
+        return TipoCartaResponse.fromEntity(saved);
+    }
+
+    @Transactional
+    public TipoCartaResponse eliminarPlato(UUID tipoCartaId, UUID platoId) {
+        TipoCarta tipoCarta = tipoCartaRepository.findById(tipoCartaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de carta no encontrado: " + tipoCartaId));
+
+        boolean removed = tipoCarta.getPlatos().removeIf(p -> p.getId().equals(platoId));
+        
+        if (removed) {
+            TipoCarta saved = tipoCartaRepository.save(tipoCarta);
+            
+            // Publicar evento de actualización
+            publicarEventoTipoCartaPlatosActualizados(saved);
+            
+            return TipoCartaResponse.fromEntity(saved);
+        }
+
+        return TipoCartaResponse.fromEntity(tipoCarta);
+    }
+
+    private void publicarEventoTipoCartaPlatosActualizados(TipoCarta tipoCarta) {
+        com.suances.carta.dto.event.TipoCartaPlatosChangedEvent event = new com.suances.carta.dto.event.TipoCartaPlatosChangedEvent();
+        event.setTipoCartaId(tipoCarta.getId());
+        event.setNombre(tipoCarta.getNombre());
+        event.setHoraInicio(tipoCarta.getHoraInicio());
+        event.setHoraFin(tipoCarta.getHoraFin());
+        event.setActivo(tipoCarta.getActivo());
+
+        List<com.suances.carta.dto.event.TipoCartaPlatosChangedEvent.PlatoInfo> platosInfo =
+            tipoCarta.getPlatos().stream()
+                .map((Plato p) -> new com.suances.carta.dto.event.TipoCartaPlatosChangedEvent.PlatoInfo(
+                    p.getId(), p.getNombre(), null))
+                .collect(java.util.stream.Collectors.toList());
+        event.setPlatos(platosInfo);
+
+        eventProducer.publicarTipoCartaPlatosActualizados(event);
     }
 
     public TipoCartaResponse obtenerCartaActiva() {

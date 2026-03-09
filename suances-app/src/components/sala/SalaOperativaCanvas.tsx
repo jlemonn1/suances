@@ -100,9 +100,12 @@ const GridMode: React.FC<{
   const totalMargins = (numColumns + 1) * TABLE_MARGIN;
   const itemWidth = (width - totalMargins) / numColumns;
 
+  // Ordenar mesas por número de forma ascendente
+  const mesasOrdenadas = [...mesas].sort((a, b) => a.numero - b.numero);
+
   return (
     <View style={styles.gridContainer}>
-      {mesas.map((mesa) => (
+      {mesasOrdenadas.map((mesa) => (
         <MesaCard
           key={mesa.id}
           mesa={mesa}
@@ -120,8 +123,11 @@ const CoordenadasMode: React.FC<{
   mesas: MesaOperativa[];
   onMesaPress: (mesa: MesaOperativa) => void;
 }> = ({ mesas, onMesaPress }) => {
+  // Ordenar mesas por número de forma ascendente
+  const mesasOrdenadas = [...mesas].sort((a, b) => a.numero - b.numero);
+  
   // Filtrar mesas que tienen coordenadas
-  const mesasConCoords = mesas.filter(m => m.posX !== undefined && m.posY !== undefined);
+  const mesasConCoords = mesasOrdenadas.filter(m => m.posX !== undefined && m.posY !== undefined);
   
   if (mesasConCoords.length === 0) {
     return (

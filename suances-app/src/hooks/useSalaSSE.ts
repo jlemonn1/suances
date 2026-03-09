@@ -12,7 +12,7 @@ export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
   const { enabled = true, salaId } = options;
   const eventSourceRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { updateMesaFromSSE, fetchMesas } = useSalaStore();
+  const { updateMesaFromSSE, fetchMesas, setSseConnected } = useSalaStore();
 
   const connect = useCallback(() => {
     console.log('[SALA-SSE] Intentando conectar...', 'EventSource existente:', eventSourceRef.current ? 'SÍ' : 'NO');
@@ -34,6 +34,7 @@ export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
       // Manejar apertura de conexión
       es.addEventListener('open', () => {
         console.log('[SALA-SSE] Conexión establecida');
+        setSseConnected(true); // Marcar como conectado
       });
 
       // Manejar evento de conexión exitosa del servidor
@@ -110,7 +111,8 @@ export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
 
       // Manejar errores
       es.addEventListener('error', (event: any) => {
-        console.error('[SALA-SSE] Error en conexión:', event);
+        // Silenciar error - solo marcar como desconectado
+        setSseConnected(false);
         
         // Reconectar después de 5 segundos
         if (reconnectTimeoutRef.current) {
@@ -128,7 +130,7 @@ export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
     } catch (error) {
       console.error('[SALA-SSE] Error al crear EventSource:', error);
     }
-  }, [updateMesaFromSSE, fetchMesas, salaId]);
+  }, [updateMesaFromSSE, fetchMesas, salaId, setSseConnected]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {

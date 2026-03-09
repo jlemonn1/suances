@@ -14,6 +14,7 @@ import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
 import { TipoCartaResponse } from '../../types/carta';
 import { useTipoCartaStore } from '../../store/tipoCartaStore';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface TiposCartaListScreenProps {
   navigation: any;
@@ -23,6 +24,15 @@ export const TiposCartaListScreen: React.FC<TiposCartaListScreenProps> = ({
   navigation,
 }) => {
   const { tiposCarta, isLoading, fetchTiposCarta, removeTipoCarta } = useTipoCartaStore();
+
+  // Conectar a SSE para actualizaciones en tiempo real
+  useCartaSSE({
+    enabled: true,
+    onTipoCartaChanged: () => {
+      console.log('[TiposCartaListScreen] Recargando tipos de carta por cambio SSE');
+      fetchTiposCarta();
+    },
+  });
 
   useEffect(() => {
     if (tiposCarta.length === 0) {

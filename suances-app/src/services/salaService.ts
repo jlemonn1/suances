@@ -13,6 +13,7 @@ import type {
   FranjaHoraria,
   Sala,
 } from '../types/sala';
+import type { PlatoOperativo, TipoCartaOperativo } from '../types/carta';
 
 export const salaService = {
   // Mesas
@@ -87,13 +88,25 @@ export const salaService = {
     await salaApi.delete(`/comandas/${id}`, { params: { motivo } });
   },
 
-  // Pedidos
+  // Pedidos (items)
   agregarPedido: async (
     comandaId: string,
     data: AgregarPedidoRequest
-  ): Promise<Pedido> => {
-    const response = await salaApi.post<Pedido>(
-      `/comandas/${comandaId}/pedidos`,
+  ): Promise<Pedido[]> => {
+    const response = await salaApi.post<Pedido[]>(
+      `/comandas/${comandaId}/items`,
+      [data]
+    );
+    return response.data;
+  },
+
+  // Agregar múltiples pedidos (items)
+  agregarPedidos: async (
+    comandaId: string,
+    data: AgregarPedidoRequest[]
+  ): Promise<Pedido[]> => {
+    const response = await salaApi.post<Pedido[]>(
+      `/comandas/${comandaId}/items`,
       data
     );
     return response.data;
@@ -163,6 +176,27 @@ export const salaService = {
   // Sincronizar todo el catálogo (franjas, salas, mesas, reservas)
   sincronizarTodo: async (): Promise<string> => {
     const response = await salaApi.post<string>('/mesas/sincronizar-todo');
+    return response.data;
+  },
+
+  // Carta operativa (desde tablas de sala-service)
+  getPlatosOperativos: async (): Promise<PlatoOperativo[]> => {
+    const response = await salaApi.get<PlatoOperativo[]>('/carta/platos');
+    return response.data;
+  },
+
+  getPlatoOperativo: async (platoId: string): Promise<PlatoOperativo> => {
+    const response = await salaApi.get<PlatoOperativo>(`/carta/platos/${platoId}`);
+    return response.data;
+  },
+
+  getTiposCartaOperativos: async (): Promise<TipoCartaOperativo[]> => {
+    const response = await salaApi.get<TipoCartaOperativo[]>('/carta/tipos-carta');
+    return response.data;
+  },
+
+  getCartaActivaOperativa: async (): Promise<TipoCartaOperativo[]> => {
+    const response = await salaApi.get<TipoCartaOperativo[]>('/carta/tipos-carta/activa');
     return response.data;
   },
 };

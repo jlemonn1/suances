@@ -61,6 +61,22 @@ public class TipoCartaController {
         return ResponseEntity.ok(tipoCartaService.asociarPlatos(id, request.getPlatoIds()));
     }
 
+    @PostMapping("/{id}/platos/{platoId}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<TipoCartaResponse> agregarPlato(
+            @PathVariable UUID id,
+            @PathVariable UUID platoId) {
+        return ResponseEntity.ok(tipoCartaService.agregarPlato(id, platoId));
+    }
+
+    @DeleteMapping("/{id}/platos/{platoId}")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<TipoCartaResponse> eliminarPlato(
+            @PathVariable UUID id,
+            @PathVariable UUID platoId) {
+        return ResponseEntity.ok(tipoCartaService.eliminarPlato(id, platoId));
+    }
+
     @GetMapping("/carta/activa")
     public ResponseEntity<TipoCartaResponse> obtenerCartaActiva() {
         return ResponseEntity.ok(tipoCartaService.obtenerCartaActiva());

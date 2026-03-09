@@ -15,6 +15,18 @@ interface PlatoState {
   checkDisponibilidad: () => PlatoResponse[];
   setPlatosAgotadosFromPoll: (platosAgotados: PlatoResponse[]) => void;
   getAgotadosCount: () => number;
+  updatePlatoFromSSE: (data: {
+    platoId: string;
+    nombre?: string;
+    descripcion?: string;
+    precioVenta?: number;
+    categoriaId?: string;
+    categoriaNombre?: string;
+    activo?: boolean;
+    disponible?: boolean;
+    stockDisponible?: number;
+    stockBajo?: boolean;
+  }) => void;
 }
 
 export const usePlatoStore = create<PlatoState>((set, get) => ({
@@ -80,5 +92,61 @@ export const usePlatoStore = create<PlatoState>((set, get) => ({
 
   getAgotadosCount: () => {
     return get().platosAgotados.length;
+  },
+
+  updatePlatoFromSSE: (data) => {
+    console.log('[platoStore] Actualizando plato desde SSE:', data);
+    set((state) => ({
+      platos: state.platos.map((p) => {
+        if (p.id === data.platoId) {
+          const updatedPlato = {
+            ...p,
+            ...(data.nombre !== undefined && { nombre: data.nombre }),
+            ...(data.descripcion !== undefined && { descripcion: data.descripcion }),
+            ...(data.precioVenta !== undefined && { precioVenta: data.precioVenta }),
+            ...(data.categoriaId !== undefined && { 
+              categoria: { 
+                ...p.categoria, 
+                id: data.categoriaId,
+                ...(data.categoriaNombre !== undefined && { nombre: data.categoriaNombre })
+              } 
+            }),
+            ...(data.activo !== undefined && { activo: data.activo }),
+            ...(data.disponible !== undefined && { disponible: data.disponible }),
+            ...(data.stockDisponible !== undefined && { stockDisponible: data.stockDisponible }),
+            ...(data.stockBajo !== undefined && { stockBajo: data.stockBajo }),
+          };
+          console.log('[platoStore] Plato actualizado:', updatedPlato.nombre);
+          return updatedPlato;
+        }
+        return p;
+      }),
+    }));
+    
+    // Si el plato se desactivó o tiene stock bajo, agregarlo a la lista de agotados
+    if (data.disponible === false || data.activo === false || data.stockBajo === true) {
+      set((state) => {
+        const plato = state.platos.find(p => p.id === data.platoId);
+        if (plato && !state.platosAgotados.find(pa => pa.id === data.platoId)) {
+          console.log('[platoStore] Agregando plato a lista de agotados:', plato.nombre);
+          return { platosAgotados: [...state.platosAgotados, plato] };
+        }
+        return state;
+      });
+    }
+    
+    // Si el plato se activó y no tiene stock bajo, quitarlo de la lista de agotados
+    if ((data.disponible === true || data.activo === true) && data.stockBajo !== true) {
+      set((state) => {
+        const platoExistente = state.platosAgotados.find(pa => pa.id === data.platoId);
+        if (platoExistente) {
+          console.log('[platoStore] Quitando plato de lista de agotados:', data.nombre || platoExistente.nombre);
+          return { 
+            platosAgotados: state.platosAgotados.filter(pa => pa.id !== data.platoId) 
+          };
+        }
+        return state;
+      });
+    }
   },
 }));

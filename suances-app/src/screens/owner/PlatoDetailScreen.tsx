@@ -16,6 +16,7 @@ import { cartaService } from '../../services/cartaService';
 import { PlatoResponse } from '../../types/plato';
 import { Escandallo } from '../../types/carta';
 import { usePlatoStore } from '../../store/platoStore';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface PlatoDetailScreenProps {
   navigation: any;
@@ -32,6 +33,15 @@ export const PlatoDetailScreen: React.FC<PlatoDetailScreenProps> = ({
   const [escandallo, setEscandallo] = useState<Escandallo | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  // Conectar a SSE para actualizaciones en tiempo real
+  useCartaSSE({
+    enabled: true,
+    onPlatoChanged: () => {
+      console.log('[PlatoDetailScreen] Recargando plato por cambio SSE');
+      loadPlato();
+    },
+  });
 
   useEffect(() => {
     loadPlato();

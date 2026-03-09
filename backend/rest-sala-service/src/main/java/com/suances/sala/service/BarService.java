@@ -64,7 +64,8 @@ public class BarService {
                 item.getHoraPedido(),
                 item.getHoraEnvioCocina(),
                 item.getHoraListo(),
-                item.getHoraServido()
+                item.getHoraServido(),
+                false
         );
     }
 }

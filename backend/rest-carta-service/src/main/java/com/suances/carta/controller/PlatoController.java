@@ -65,6 +65,13 @@ public class PlatoController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/activar")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<Void> activar(@PathVariable UUID id) {
+        platoService.activar(id);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/{id}/imagenes")
     @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<PlatoResponse> agregarImagen(

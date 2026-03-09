@@ -22,5 +22,12 @@ public record ItemComandaResponse(
         OffsetDateTime horaPedido,
         OffsetDateTime horaEnvioCocina,
         OffsetDateTime horaListo,
-        OffsetDateTime horaServido
-) {}
+        OffsetDateTime horaServido,
+        Boolean advertenciaStock
+) {
+    public ItemComandaResponse {
+        if (advertenciaStock == null) {
+            advertenciaStock = false;
+        }
+    }
+}

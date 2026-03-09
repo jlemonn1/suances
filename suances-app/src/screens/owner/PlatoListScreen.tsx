@@ -13,6 +13,7 @@ import { colors, spacing, typography } from '../../theme';
 import { PlatoResponse } from '../../types/plato';
 import { usePlatoStore } from '../../store/platoStore';
 import { useCategoriaStore } from '../../store/categoriaStore';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface PlatoListScreenProps {
   navigation: any;
@@ -24,6 +25,15 @@ export const PlatoListScreen: React.FC<PlatoListScreenProps> = ({
   const { platos, isLoading, fetchPlatos } = usePlatoStore();
   const { categorias, fetchCategorias } = useCategoriaStore();
   const [searchText, setSearchText] = useState('');
+
+  // Conectar a SSE para actualizaciones en tiempo real
+  useCartaSSE({
+    enabled: true,
+    onPlatoChanged: () => {
+      console.log('[PlatoListScreen] Recargando platos por cambio SSE');
+      fetchPlatos(true);
+    },
+  });
 
   useEffect(() => {
     if (platos.length === 0) {

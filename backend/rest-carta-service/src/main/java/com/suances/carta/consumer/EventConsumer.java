@@ -140,8 +140,15 @@ public class EventConsumer {
             String json = (String) datos.get("data");
             SalaPedidoEvent evento = objectMapper.readValue(json, SalaPedidoEvent.class);
 
-            log.info("Procesando evento: eventId={}, platoId={}, cantidad={}",
-                    evento.getEventId(), evento.getPlatoId(), evento.getCantidad());
+            log.info("Procesando evento: type={}, eventId={}, platoId={}, cantidad={}",
+                    evento.getType(), evento.getEventId(), evento.getPlatoId(), evento.getCantidad());
+
+            // Solo procesar eventos de items enviados a cocina (no cuando se crean)
+            if (!"sala.item.enviado_cocina".equals(evento.getType())) {
+                log.info("Evento no es de tipo 'enviado_cocina', ignorando: {}", evento.getType());
+                redisTemplate.opsForStream().acknowledge(streamEvents, group, eventId);
+                return;
+            }
 
             if (eventosProcesadosRepository.existsByEventId(evento.getEventId())) {
                 log.info("Evento ya procesado, ignorando: {}", evento.getEventId());

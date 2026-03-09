@@ -16,6 +16,7 @@ import { cartaService } from '../../services/cartaService';
 import { TipoCartaResponse } from '../../types/carta';
 import { PlatoResponse } from '../../types/plato';
 import { usePlatoStore } from '../../store/platoStore';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface TipoCartaDetailScreenProps {
   navigation: any;
@@ -47,6 +48,20 @@ export const TipoCartaDetailScreen: React.FC<TipoCartaDetailScreenProps> = ({
     }
   }, [tipoCartaId]);
 
+  // Conectar a SSE para actualizaciones en tiempo real
+  useCartaSSE({
+    enabled: true,
+    onPlatoChanged: () => {
+      console.log('[TipoCartaDetailScreen] Recargando por cambio en plato');
+      loadTipoCarta();
+      fetchPlatos(false);
+    },
+    onTipoCartaChanged: () => {
+      console.log('[TipoCartaDetailScreen] Recargando por cambio en tipo de carta');
+      loadTipoCarta();
+    },
+  });
+
   useEffect(() => {
     loadTipoCarta();
     fetchPlatos(false);
@@ -76,14 +91,13 @@ export const TipoCartaDetailScreen: React.FC<TipoCartaDetailScreenProps> = ({
 
     setLoadingPlatos(true);
     try {
-      const currentPlatoIds = tipoCarta.platos.map(p => p.id);
-      console.log('Asociando platos a tipoCarta:', tipoCarta.id, 'platos:', [...currentPlatoIds, plato.id]);
-      const updated = await cartaService.asociarPlatosATipoCarta(tipoCarta.id, [...currentPlatoIds, plato.id]);
+      console.log('Agregando plato a tipoCarta:', tipoCarta.id, 'plato:', plato.id);
+      const updated = await cartaService.agregarPlatoATipoCarta(tipoCarta.id, plato.id);
       setTipoCarta(updated);
       setShowPlatosSelector(false);
     } catch (error: any) {
-      console.error('Error associating plato:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'No se pudo asociar el plato';
+      console.error('Error agregando plato:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'No se pudo agregar el plato';
       Alert.alert('Error', errorMessage);
     } finally {
       setLoadingPlatos(false);
@@ -104,13 +118,12 @@ export const TipoCartaDetailScreen: React.FC<TipoCartaDetailScreenProps> = ({
           onPress: async () => {
             setLoadingPlatos(true);
             try {
-              const currentPlatoIds = tipoCarta.platos.filter(p => p.id !== platoId).map(p => p.id);
-              console.log('Desasociando plato:', platoId, 'tipoCarta:', tipoCarta.id, 'platos restantes:', currentPlatoIds);
-              const updated = await cartaService.asociarPlatosATipoCarta(tipoCarta.id, currentPlatoIds);
+              console.log('Eliminando plato de tipoCarta:', tipoCarta.id, 'plato:', platoId);
+              const updated = await cartaService.eliminarPlatoDeTipoCarta(tipoCarta.id, platoId);
               setTipoCarta(updated);
             } catch (error: any) {
-              console.error('Error desasociando plato:', error);
-              const errorMessage = error?.response?.data?.message || error?.message || 'No se pudo desasociar el plato';
+              console.error('Error eliminando plato:', error);
+              const errorMessage = error?.response?.data?.message || error?.message || 'No se pudo eliminar el plato';
               Alert.alert('Error', errorMessage);
             } finally {
               setLoadingPlatos(false);

@@ -13,6 +13,30 @@ export interface PlatoInfo {
   nombre: string;
 }
 
+// Tipos para carta operativa desde sala-service
+export interface PlatoOperativo {
+  platoId: string;
+  nombre: string;
+  descripcion: string | null;
+  precioVenta: number;
+  categoriaId: string | null;
+  categoriaNombre: string | null;
+  stockDisponible: number | null;
+  disponible: boolean;
+  stockBajo: boolean;
+  imagenUrl: string | null;
+  ingredientes: string[];
+}
+
+export interface TipoCartaOperativo {
+  tipoCartaId: string;
+  nombre: string;
+  horaInicio: string;
+  horaFin: string;
+  activo: boolean;
+  platos: PlatoOperativo[];
+}
+
 export interface TipoCartaRequest {
   nombre: string;
   horaInicio: string;

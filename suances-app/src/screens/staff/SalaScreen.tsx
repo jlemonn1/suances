@@ -161,7 +161,7 @@ export const SalaScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <View style={styles.headerContainer}>
         <SalaOperativaHeader
           franjas={franjas}

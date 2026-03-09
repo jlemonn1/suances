@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PlatoCard, Loading, EmptyState } from '../../components/common';
+import { Loading, EmptyState } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
-import { cartaService } from '../../services/cartaService';
-import { PlatoResponse } from '../../types/plato';
-import { TipoCartaResponse } from '../../types/carta';
+import { salaService } from '../../services/salaService';
+import { PlatoOperativo, TipoCartaOperativo } from '../../types/carta';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface CartaPublicaScreenProps {
   navigation?: any;
@@ -20,53 +20,112 @@ interface CartaPublicaScreenProps {
 export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
   navigation,
 }) => {
-  const [tiposCarta, setTiposCarta] = useState<TipoCartaResponse[]>([]);
+  const [tiposCarta, setTiposCarta] = useState<TipoCartaOperativo[]>([]);
   const [selectedTipo, setSelectedTipo] = useState<string | null>(null);
-  const [platos, setPlatos] = useState<PlatoResponse[]>([]);
+  const [platos, setPlatos] = useState<PlatoOperativo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState(0);
+  
+  // Ref para mantener el valor actual de selectedTipo sin depender del closure
+  const selectedTipoRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    selectedTipoRef.current = selectedTipo;
+  }, [selectedTipo]);
 
-  const loadData = async () => {
+  // Callback para forzar actualización cuando llegan eventos SSE
+  const handleDataUpdate = useCallback(() => {
+    console.log('[CartaPublicaScreen] Forzando actualización por evento SSE, carta actual:', selectedTipoRef.current);
+    setUpdateVersion(prev => prev + 1);
+    // No llamamos loadData() aquí, dejamos que el useEffect maneje la actualización
+  }, []);
+
+  // Conectar a SSE para actualizaciones en tiempo real de la carta
+  useCartaSSE({
+    enabled: true,
+    onPlatoChanged: handleDataUpdate,
+    onTipoCartaChanged: handleDataUpdate
+  });
+
+  const loadData = useCallback(async () => {
     try {
-      const tipos = await cartaService.getTiposCarta();
-      setTiposCarta(tipos.filter((t) => t.activo));
-      
-      if (tipos.length > 0) {
-        const primerTipo = tipos.find((t) => t.activo) || tipos[0];
-        setSelectedTipo(primerTipo.id);
+      console.log('[CartaPublicaScreen] Cargando datos de carta...');
+      // Cargar tipos de carta desde sala-service
+      const tipos = await salaService.getTiposCartaOperativos();
+      const tiposActivos = tipos.filter((t) => t.activo);
+      setTiposCarta(tiposActivos);
+
+      if (tiposActivos.length > 0) {
+        // Solo cambiar el tipo seleccionado si no hay ninguno seleccionado
+        // o si el seleccionado ya no existe
+        const currentSelected = selectedTipoRef.current;
+        let tipoIdToUse = currentSelected;
+        
+        if (!currentSelected) {
+          // Primera carga: seleccionar el primero
+          tipoIdToUse = tiposActivos[0].tipoCartaId;
+          setSelectedTipo(tipoIdToUse);
+        } else {
+          // Verificar si el tipo seleccionado todavía existe
+          const tipoExiste = tiposActivos.find((t) => t.tipoCartaId === currentSelected);
+          if (!tipoExiste) {
+            // El tipo seleccionado ya no existe, usar el primero
+            tipoIdToUse = tiposActivos[0].tipoCartaId;
+            setSelectedTipo(tipoIdToUse);
+          }
+        }
+
+        // Actualizar platos del tipo seleccionado
+        const tipoActual = tiposActivos.find((t) => t.tipoCartaId === tipoIdToUse);
+        if (tipoActual) {
+          console.log('[CartaPublicaScreen] Platos cargados para tipo', tipoActual.nombre, ':', tipoActual.platos?.length);
+          setPlatos(tipoActual.platos || []);
+        }
+      } else {
+        setPlatos([]);
       }
     } catch (error) {
-      console.error('Error loading carta:', error);
+      console.error('Error loading carta desde sala:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const loadPlatos = async (tipoId: string) => {
-    try {
-      const data = await cartaService.getPlatos(true);
-      const filtered = data.filter((p) => 
-        (p.tiposCarta || []).some((tc) => tc.id === tipoId)
-      );
-      setPlatos(filtered);
-    } catch (error) {
-      console.error('Error loading platos:', error);
+  // Actualizar platos cuando cambie el tipo seleccionado, los tipos de carta o la versión
+  useEffect(() => {
+    if (selectedTipo && tiposCarta.length > 0) {
+      const tipo = tiposCarta.find((t) => t.tipoCartaId === selectedTipo);
+      if (tipo) {
+        console.log('[CartaPublicaScreen] Actualizando platos para tipo:', tipo.nombre, '- Platos:', tipo.platos?.length);
+        setPlatos(tipo.platos || []);
+      }
     }
-  };
+  }, [selectedTipo, tiposCarta, updateVersion]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData, updateVersion]);
 
-  useEffect(() => {
-    if (selectedTipo) {
-      loadPlatos(selectedTipo);
-    }
-  }, [selectedTipo]);
-
-  const renderItem = ({ item }: { item: PlatoResponse }) => (
-    <PlatoCard plato={item} showDetails={false} />
+  const renderPlato = ({ item }: { item: PlatoOperativo }) => (
+    <View style={styles.platoCard}>
+      <View style={styles.platoInfo}>
+        <Text style={styles.platoNombre}>{item.nombre}</Text>
+        {item.descripcion && (
+          <Text style={styles.platoDescripcion}>{item.descripcion}</Text>
+        )}
+        {item.categoriaNombre && (
+          <Text style={styles.platoCategoria}>{item.categoriaNombre}</Text>
+        )}
+      </View>
+      <View style={styles.platoPrecioContainer}>
+        <Text style={styles.platoPrecio}>{item.precioVenta.toFixed(2)} €</Text>
+        {item.stockBajo && (
+          <Text style={styles.stockBajo}>Stock bajo</Text>
+        )}
+      </View>
+    </View>
   );
 
   if (loading) {
@@ -81,18 +140,18 @@ export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
         <View style={styles.tabs}>
           {tiposCarta.map((tipo) => (
             <View
-              key={tipo.id}
+              key={tipo.tipoCartaId}
               style={[
                 styles.tab,
-                selectedTipo === tipo.id && styles.tabActive,
+                selectedTipo === tipo.tipoCartaId && styles.tabActive,
               ]}
             >
               <Text
                 style={[
                   styles.tabText,
-                  selectedTipo === tipo.id && styles.tabTextActive,
+                  selectedTipo === tipo.tipoCartaId && styles.tabTextActive,
                 ]}
-                onPress={() => setSelectedTipo(tipo.id)}
+                onPress={() => setSelectedTipo(tipo.tipoCartaId)}
               >
                 {tipo.nombre}
               </Text>
@@ -103,8 +162,8 @@ export const CartaPublicaScreen: React.FC<CartaPublicaScreenProps> = ({
 
       <FlatList
         data={platos}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        keyExtractor={(item) => item.platoId}
+        renderItem={renderPlato}
         contentContainerStyle={platos.length === 0 ? styles.emptyContainer : styles.list}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />
@@ -159,5 +218,44 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
+  },
+  platoCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  platoInfo: {
+    flex: 1,
+  },
+  platoNombre: {
+    ...typography.h3,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  platoDescripcion: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  platoCategoria: {
+    ...typography.caption,
+    color: colors.primary,
+  },
+  platoPrecioContainer: {
+    alignItems: 'flex-end',
+  },
+  platoPrecio: {
+    ...typography.h3,
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  stockBajo: {
+    ...typography.caption,
+    color: colors.error,
+    marginTop: spacing.xs,
   },
 });
