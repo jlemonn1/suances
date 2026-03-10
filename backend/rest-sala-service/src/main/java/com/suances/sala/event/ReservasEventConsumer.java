@@ -9,6 +9,7 @@ import com.suances.sala.event.dto.ReservaCreatedEvent;
 import com.suances.sala.event.dto.ReservaUpdatedEvent;
 import com.suances.sala.repository.EventoProcesadoRepository;
 import com.suances.sala.repository.MesaOperativaRepository;
+import com.suances.sala.service.MesaOperativaService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,6 +45,7 @@ public class ReservasEventConsumer {
     private final EventoProcesadoRepository eventoProcesadoRepository;
     private final MesaOperativaRepository mesaOperativaRepository;
     private final SseEmitterManager sseEmitterManager;
+    private final MesaOperativaService mesaOperativaService;
 
     private ExecutorService executor;
     private volatile boolean activo = true;
@@ -51,12 +54,14 @@ public class ReservasEventConsumer {
                                  ObjectMapper objectMapper,
                                  EventoProcesadoRepository eventoProcesadoRepository,
                                  MesaOperativaRepository mesaOperativaRepository,
-                                 SseEmitterManager sseEmitterManager) {
+                                 SseEmitterManager sseEmitterManager,
+                                 MesaOperativaService mesaOperativaService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.eventoProcesadoRepository = eventoProcesadoRepository;
         this.mesaOperativaRepository = mesaOperativaRepository;
         this.sseEmitterManager = sseEmitterManager;
+        this.mesaOperativaService = mesaOperativaService;
     }
 
     @PostConstruct
@@ -177,6 +182,13 @@ public class ReservasEventConsumer {
             return;
         }
         
+        // Verificar si la reserva es para la franja actual
+        if (!esFranjaActual(evento.getFranjaId())) {
+            log.debug("Reserva {} es para franja {} (no es la actual), sincronizando pero no emitiendo SSE", 
+                    evento.getCodigo(), evento.getFranjaId());
+            // Sincronizamos la mesa pero NO emitimos SSE
+        }
+        
         Optional<MesaOperativa> optionalMesa = mesaOperativaRepository.findById(evento.getMesaId());
         if (optionalMesa.isPresent()) {
             MesaOperativa mesa = optionalMesa.get();
@@ -187,17 +199,19 @@ public class ReservasEventConsumer {
             mesaOperativaRepository.save(mesa);
             log.info("Mesa {} actualizada con reserva {} en franja {}", evento.getMesaId(), evento.getId(), evento.getFranjaId());
             
-            // Emitir evento SSE a clientes conectados
-            Map<String, Object> eventData = Map.of(
-                "mesaId", evento.getMesaId(),
-                "reservaId", evento.getId(),
-                "estado", "RESERVADA",
-                "nombreCliente", evento.getNombreCliente(),
-                "franjaId", evento.getFranjaId(),
-                "codigo", evento.getCodigo()
-            );
-            sseEmitterManager.broadcast("mesa.reservada", eventData);
-            log.info("[SSE] Evento mesa.reservada emitido para mesa {}", evento.getMesaId());
+            // Emitir evento SSE a clientes conectados SOLO si es la franja actual
+            if (esFranjaActual(evento.getFranjaId())) {
+                Map<String, Object> eventData = Map.of(
+                    "mesaId", evento.getMesaId(),
+                    "reservaId", evento.getId(),
+                    "estado", "RESERVADA",
+                    "nombreCliente", evento.getNombreCliente(),
+                    "franjaId", evento.getFranjaId(),
+                    "codigo", evento.getCodigo()
+                );
+                sseEmitterManager.broadcast("mesa.reservada", eventData);
+                log.info("[SSE] Evento mesa.reservada emitido para mesa {} (franja actual)", evento.getMesaId());
+            }
         } else {
             log.warn("Mesa {} no encontrada para asignar reserva", evento.getMesaId());
         }
@@ -217,6 +231,9 @@ public class ReservasEventConsumer {
             MesaOperativa mesa = optionalMesa.get();
             // Solo limpiar si la reserva cancelada es la que está activa y es de hoy
             if (mesa.getReservaActualId() != null && mesa.getReservaActualId().equals(evento.getId())) {
+                // Guardar franjaId antes de limpiar
+                UUID franjaIdReserva = mesa.getFranjaIdReserva();
+                
                 mesa.setReservaActualId(null);
                 mesa.setNombreClienteReserva(null);
                 mesa.setFranjaIdReserva(null);
@@ -224,16 +241,18 @@ public class ReservasEventConsumer {
                 mesaOperativaRepository.save(mesa);
                 log.info("Reserva liberada de mesa {}", evento.getMesaId());
 
-                // Emitir evento SSE a clientes conectados
-                Map<String, Object> eventData = new HashMap<>();
-                eventData.put("mesaId", evento.getMesaId());
-                eventData.put("reservaId", evento.getId());
-                eventData.put("estado", "LIBRE");
-                eventData.put("nombreCliente", "");
-                eventData.put("franjaId", "");
-                eventData.put("codigo", evento.getCodigo());
-                sseEmitterManager.broadcast("mesa.liberada", eventData);
-                log.info("[SSE] Evento mesa.liberada emitido para mesa {}", evento.getMesaId());
+                // Emitir evento SSE a clientes conectados SOLO si era la franja actual
+                if (esFranjaActual(franjaIdReserva)) {
+                    Map<String, Object> eventData = new HashMap<>();
+                    eventData.put("mesaId", evento.getMesaId());
+                    eventData.put("reservaId", evento.getId());
+                    eventData.put("estado", "LIBRE");
+                    eventData.put("nombreCliente", "");
+                    eventData.put("franjaId", "");
+                    eventData.put("codigo", evento.getCodigo());
+                    sseEmitterManager.broadcast("mesa.liberada", eventData);
+                    log.info("[SSE] Evento mesa.liberada emitido para mesa {} (franja actual)", evento.getMesaId());
+                }
             }
         }
     }
@@ -249,6 +268,9 @@ public class ReservasEventConsumer {
             return;
         }
         
+        // Verificar si es la franja actual
+        boolean esFranjaActual = esFranjaActual(evento.getFranjaId());
+        
         // Si hay cambio de mesa, liberar la mesa anterior
         if (evento.getMesaIdAnterior() != null && !evento.getMesaIdAnterior().equals(evento.getMesaId())) {
             Optional<MesaOperativa> mesaAnteriorOpt = mesaOperativaRepository.findById(evento.getMesaIdAnterior());
@@ -256,6 +278,9 @@ public class ReservasEventConsumer {
                 MesaOperativa mesaAnterior = mesaAnteriorOpt.get();
                 // Solo limpiar si la reserva activa es la misma
                 if (mesaAnterior.getReservaActualId() != null && mesaAnterior.getReservaActualId().equals(evento.getId())) {
+                    // Guardar franjaId antes de limpiar
+                    UUID franjaIdAnterior = mesaAnterior.getFranjaIdReserva();
+                    
                     mesaAnterior.setReservaActualId(null);
                     mesaAnterior.setNombreClienteReserva(null);
                     mesaAnterior.setFranjaIdReserva(null);
@@ -263,17 +288,19 @@ public class ReservasEventConsumer {
                     mesaOperativaRepository.save(mesaAnterior);
                     log.info("Mesa anterior {} liberada por cambio de reserva {}", evento.getMesaIdAnterior(), evento.getCodigo());
                     
-                    // Emitir evento SSE para la mesa anterior
-                    Map<String, Object> eventDataAnterior = new HashMap<>();
-                    eventDataAnterior.put("mesaId", evento.getMesaIdAnterior());
-                    eventDataAnterior.put("reservaId", evento.getId());
-                    eventDataAnterior.put("estado", "LIBRE");
-                    eventDataAnterior.put("nombreCliente", "");
-                    eventDataAnterior.put("franjaId", "");
-                    eventDataAnterior.put("codigo", evento.getCodigo());
-                    eventDataAnterior.put("tipo", "CAMBIO_MESA");
-                    sseEmitterManager.broadcast("mesa.liberada", eventDataAnterior);
-                    log.info("[SSE] Evento mesa.liberada emitido para mesa anterior {}", evento.getMesaIdAnterior());
+                    // Emitir evento SSE para la mesa anterior SOLO si era franja actual
+                    if (esFranjaActual(franjaIdAnterior)) {
+                        Map<String, Object> eventDataAnterior = new HashMap<>();
+                        eventDataAnterior.put("mesaId", evento.getMesaIdAnterior());
+                        eventDataAnterior.put("reservaId", evento.getId());
+                        eventDataAnterior.put("estado", "LIBRE");
+                        eventDataAnterior.put("nombreCliente", "");
+                        eventDataAnterior.put("franjaId", "");
+                        eventDataAnterior.put("codigo", evento.getCodigo());
+                        eventDataAnterior.put("tipo", "CAMBIO_MESA");
+                        sseEmitterManager.broadcast("mesa.liberada", eventDataAnterior);
+                        log.info("[SSE] Evento mesa.liberada emitido para mesa anterior {} (franja actual)", evento.getMesaIdAnterior());
+                    }
                 }
             }
         }
@@ -289,18 +316,20 @@ public class ReservasEventConsumer {
             mesaOperativaRepository.save(mesaActual);
             log.info("Mesa {} actualizada con reserva {} (modificada)", evento.getMesaId(), evento.getCodigo());
             
-            // Emitir evento SSE para la mesa actual
-            Map<String, Object> eventDataActual = Map.of(
-                "mesaId", evento.getMesaId(),
-                "reservaId", evento.getId(),
-                "estado", "RESERVADA",
-                "nombreCliente", evento.getNombreCliente(),
-                "franjaId", evento.getFranjaId(),
-                "codigo", evento.getCodigo(),
-                "tipo", "MODIFICADA"
-            );
-            sseEmitterManager.broadcast("mesa.reservada", eventDataActual);
-            log.info("[SSE] Evento mesa.reservada emitido para mesa actual {} (modificada)", evento.getMesaId());
+            // Emitir evento SSE para la mesa actual SOLO si es franja actual
+            if (esFranjaActual) {
+                Map<String, Object> eventDataActual = Map.of(
+                    "mesaId", evento.getMesaId(),
+                    "reservaId", evento.getId(),
+                    "estado", "RESERVADA",
+                    "nombreCliente", evento.getNombreCliente(),
+                    "franjaId", evento.getFranjaId(),
+                    "codigo", evento.getCodigo(),
+                    "tipo", "MODIFICADA"
+                );
+                sseEmitterManager.broadcast("mesa.reservada", eventDataActual);
+                log.info("[SSE] Evento mesa.reservada emitido para mesa actual {} (franja actual)", evento.getMesaId());
+            }
         } else {
             log.warn("Mesa actual {} no encontrada para actualizar reserva {}", evento.getMesaId(), evento.getCodigo());
         }
@@ -321,5 +350,20 @@ public class ReservasEventConsumer {
     
     private boolean esReservaHoy(LocalDate fecha) {
         return fecha != null && fecha.equals(LocalDate.now());
+    }
+    
+    /**
+     * Verifica si la franjaId corresponde a la franja horaria actual.
+     * 
+     * @param franjaId ID de la franja a verificar
+     * @return true si es la franja actual, false en caso contrario
+     */
+    private boolean esFranjaActual(UUID franjaId) {
+        if (franjaId == null) {
+            return false;
+        }
+        return mesaOperativaService.getFranjaIdActual()
+                .map(franjaActual -> franjaActual.equals(franjaId))
+                .orElse(false);
     }
 }

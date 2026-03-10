@@ -14,14 +14,14 @@ const { width: screenWidth } = Dimensions.get('window');
 const TABLE_SIZE = 70;
 const TABLE_MARGIN = 8;
 
-const getEstadoColor = (estado: MesaEstadoOperativo, tieneReserva: boolean) => {
+const getEstadoColor = (estado: MesaEstadoOperativo, tieneReserva: boolean, tieneComanda: boolean) => {
   switch (estado) {
     case 'LIBRE':
       return tieneReserva ? colors.primary : colors.success;
     case 'OCUPADA':
       return colors.warning;
     case 'RESERVADA':
-      return colors.primary;
+      return tieneComanda ? colors.warning : colors.primary;
     case 'BLOQUEADA':
       return colors.error;
     case 'MANTENIMIENTO':
@@ -55,7 +55,7 @@ const MesaCard: React.FC<{
   width?: number;
   height?: number;
 }> = ({ mesa, onPress, width, height }) => {
-  const estadoColor = getEstadoColor(mesa.estadoOperativo, !!mesa.reservaActualId);
+  const estadoColor = getEstadoColor(mesa.estadoOperativo, !!mesa.reservaActualId, !!mesa.comandaActivaId);
   const iconName = getEstadoIcon(mesa.estadoOperativo, !!mesa.reservaActualId);
 
   return (

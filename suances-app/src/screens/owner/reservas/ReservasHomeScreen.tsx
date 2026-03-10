@@ -228,7 +228,10 @@ export const ReservasHomeScreen: React.FC<Props> = ({ navigation }) => {
           { useNativeDriver: false }
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          filteredReservas.length < 3 && styles.scrollContentMinHeight
+        ]}
       >
       <AgendaFiltersBar
         fecha={agendaFilters.fecha}
@@ -268,6 +271,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
+  },
+  scrollContentMinHeight: {
+    minHeight: 800,
   },
   divider: {
     height: 1,

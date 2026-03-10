@@ -5,5 +5,6 @@ public enum TipoRonda {
     PRIMERO,
     SEGUNDO,
     POSTRE,
-    BEBIDA
+    BEBIDA,
+    SIN_ORDEN
 }

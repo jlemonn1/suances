@@ -44,16 +44,19 @@ public class CartaRestClient {
 
             log.info("Consultando platos activos en carta-service");
 
-            ResponseEntity<List<PlatoSyncDto>> response = restTemplate.exchange(
+            ResponseEntity<List<PlatoResponseDto>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
-                    new ParameterizedTypeReference<List<PlatoSyncDto>>() {}
+                    new ParameterizedTypeReference<List<PlatoResponseDto>>() {}
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 log.info("Obtenidos {} platos del servicio de carta", response.getBody().size());
-                return response.getBody();
+                // Convertir PlatoResponseDto a PlatoSyncDto
+                return response.getBody().stream()
+                        .map(this::convertirAPlatoSyncDto)
+                        .collect(java.util.stream.Collectors.toList());
             } else {
                 log.warn("Respuesta no exitosa del servicio de carta: {}", response.getStatusCode());
                 return Collections.emptyList();
@@ -62,6 +65,43 @@ public class CartaRestClient {
             log.error("Error al consultar platos en carta-service", e);
             return Collections.emptyList();
         }
+    }
+
+    private PlatoSyncDto convertirAPlatoSyncDto(PlatoResponseDto dto) {
+        PlatoSyncDto syncDto = new PlatoSyncDto();
+        syncDto.setId(dto.getId());
+        syncDto.setNombre(dto.getNombre());
+        syncDto.setDescripcion(dto.getDescripcion());
+        syncDto.setPrecioVenta(dto.getPrecioVenta());
+        syncDto.setActivo(dto.getActivo());
+        syncDto.setContadorPedidos(dto.getContadorPedidos() != null ? dto.getContadorPedidos().intValue() : 0);
+        
+        // Extraer información de categoría del objeto anidado
+        if (dto.getCategoria() != null) {
+            syncDto.setCategoriaId(dto.getCategoria().getId());
+            syncDto.setCategoriaNombre(dto.getCategoria().getNombre());
+            log.debug("Plato {} - Categoria: {} (ID: {})", 
+                    dto.getNombre(), 
+                    dto.getCategoria().getNombre(), 
+                    dto.getCategoria().getId());
+        } else {
+            log.warn("Plato {} no tiene categoría asignada", dto.getNombre());
+        }
+        
+        // Convertir imágenes
+        if (dto.getImagenes() != null) {
+            syncDto.setImagenes(dto.getImagenes().stream()
+                    .map(img -> {
+                        PlatoImagenSyncDto imgDto = new PlatoImagenSyncDto();
+                        imgDto.setId(img.getId());
+                        imgDto.setUrl(img.getUrl());
+                        imgDto.setOrden(img.getOrden());
+                        return imgDto;
+                    })
+                    .collect(java.util.stream.Collectors.toList()));
+        }
+        
+        return syncDto;
     }
 
     public List<IngredienteSyncDto> obtenerIngredientes() {
@@ -166,16 +206,16 @@ public class CartaRestClient {
 
             log.info("Consultando plato {} en carta-service", platoId);
 
-            ResponseEntity<PlatoSyncDto> response = restTemplate.exchange(
+            ResponseEntity<PlatoResponseDto> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
-                    PlatoSyncDto.class
+                    PlatoResponseDto.class
             );
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 log.info("Obtenido plato {} del servicio de carta", platoId);
-                return response.getBody();
+                return convertirAPlatoSyncDto(response.getBody());
             } else {
                 log.warn("Respuesta no exitosa del servicio de carta: {}", response.getStatusCode());
                 return null;

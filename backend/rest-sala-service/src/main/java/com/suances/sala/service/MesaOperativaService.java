@@ -1,24 +1,36 @@
 package com.suances.sala.service;
 
 import com.suances.sala.domain.dto.response.MesaOperativaResponse;
+import com.suances.sala.domain.model.FranjaOperativa;
 import com.suances.sala.domain.model.MesaOperativa;
+import com.suances.sala.domain.model.SalaOperativa;
 import com.suances.sala.domain.model.enums.MesaEstadoOperativo;
 import com.suances.sala.exception.ResourceNotFoundException;
+import com.suances.sala.repository.FranjaOperativaRepository;
 import com.suances.sala.repository.MesaOperativaRepository;
+import com.suances.sala.repository.SalaOperativaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class MesaOperativaService {
 
     private final MesaOperativaRepository mesaOperativaRepository;
+    private final SalaOperativaRepository salaOperativaRepository;
+    private final FranjaOperativaRepository franjaOperativaRepository;
 
-    public MesaOperativaService(MesaOperativaRepository mesaOperativaRepository) {
+    public MesaOperativaService(MesaOperativaRepository mesaOperativaRepository,
+                                SalaOperativaRepository salaOperativaRepository,
+                                FranjaOperativaRepository franjaOperativaRepository) {
         this.mesaOperativaRepository = mesaOperativaRepository;
+        this.salaOperativaRepository = salaOperativaRepository;
+        this.franjaOperativaRepository = franjaOperativaRepository;
     }
 
     @Transactional
@@ -117,8 +129,15 @@ public class MesaOperativaService {
     }
 
     private MesaOperativaResponse mapToResponse(MesaOperativa mesa, UUID franjaId) {
-        // TODO: Obtener nombres reales desde otros servicios
-        String nombreSala = "Sala " + (mesa.getSalaId() != null ? mesa.getSalaId().toString().substring(0, 4) : "N/A");
+        // Obtener nombre real de la sala
+        String nombreSala = "Sala";
+        if (mesa.getSalaId() != null) {
+            nombreSala = salaOperativaRepository.findById(mesa.getSalaId())
+                    .map(SalaOperativa::getNombre)
+                    .orElse("Sala " + mesa.getSalaId().toString().substring(0, 4));
+        }
+        
+        // TODO: Obtener nombre real del camarero desde servicio de usuarios
         String nombreCamarero = mesa.getCamareroAsignadoId() != null ? "Camarero " + mesa.getCamareroAsignadoId().toString().substring(0, 4) : null;
 
         // Verificar si la reserva es para hoy
@@ -155,5 +174,26 @@ public class MesaOperativaService {
                 franjaIdReserva,
                 fechaReserva
         );
+    }
+    
+    /**
+     * Obtiene el ID de la franja operativa actual según la hora del día.
+     * Busca entre las franjas activas del día actual.
+     * 
+     * @return Optional con el ID de la franja actual, o empty si no hay franja activa
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> getFranjaIdActual() {
+        LocalTime ahora = LocalTime.now();
+        LocalDate hoy = LocalDate.now();
+        
+        List<FranjaOperativa> franjasActivas = franjaOperativaRepository.findByActivaTrue().stream()
+                .filter(f -> f.getFechaSincronizacion().equals(hoy))
+                .toList();
+        
+        return franjasActivas.stream()
+                .filter(f -> !ahora.isBefore(f.getHoraInicio()) && !ahora.isAfter(f.getHoraFin()))
+                .findFirst()
+                .map(FranjaOperativa::getId);
     }
 }

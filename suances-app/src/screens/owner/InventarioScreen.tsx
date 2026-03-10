@@ -114,10 +114,15 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
     setShowStockModal(true);
   };
 
+  // Normaliza el separador decimal (coma o punto) a punto para parseFloat
+  const normalizeDecimal = (value: string): string => {
+    return value.replace(',', '.');
+  };
+
   const handleUpdateStock = async () => {
     if (!selectedIngrediente) return;
 
-    const stock = parseFloat(newStock);
+    const stock = parseFloat(normalizeDecimal(newStock));
     if (isNaN(stock) || stock < 0) {
       Alert.alert('Error', 'Stock inválido');
       return;

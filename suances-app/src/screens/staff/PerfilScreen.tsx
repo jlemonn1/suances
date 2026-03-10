@@ -1,8 +1,15 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Card } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
+import { salaService } from '../../services/salaService';
+import { useSalaStore } from '../../store/salaStore';
+import { usePlatoStore } from '../../store/platoStore';
+import { useIngredienteStore } from '../../store/ingredienteStore';
+import { useTipoCartaOperativoStore } from '../../store/tipoCartaOperativoStore';
+import { useSalaSSE } from '../../hooks/useSalaSSE';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 
 interface PerfilScreenProps {
   navigation?: any;
@@ -10,6 +17,23 @@ interface PerfilScreenProps {
 
 export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
   const { user, logout } = useAuthStore();
+  const { fetchMesas, setSseConnected: setSalaSseConnected } = useSalaStore();
+  const { fetchPlatos } = usePlatoStore();
+  const { fetchIngredientes } = useIngredienteStore();
+  const { fetchTiposCartaOperativos } = useTipoCartaOperativoStore();
+  const [syncing, setSyncing] = useState(false);
+  
+  // Hooks SSE con key para forzar reconexión
+  const { connect: connectSala, disconnect: disconnectSala } = useSalaSSE({ 
+    enabled: true, 
+    salaId: 'all' 
+  });
+  
+  const { connect: connectCarta, disconnect: disconnectCarta } = useCartaSSE({ 
+    enabled: true,
+    onPlatoChanged: () => fetchPlatos(true),
+    onTipoCartaChanged: () => fetchTiposCartaOperativos(),
+  });
 
   const handleLogout = () => {
     Alert.alert(
@@ -28,11 +52,81 @@ export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
     );
   };
 
+  const handleSincronizar = async () => {
+    setSyncing(true);
+    try {
+      console.log('[PerfilScreen] Iniciando sincronización completa...');
+      
+      // 1. Desconectar SSE de sala y carta
+      console.log('[PerfilScreen] Desconectando SSE...');
+      disconnectSala();
+      disconnectCarta();
+      setSalaSseConnected(false);
+      
+      // 2. Llamar al backend para sincronizar carta y catálogo
+      console.log('[PerfilScreen] Sincronizando backend...');
+      let resultado;
+      try {
+        resultado = await salaService.sincronizarTodoCompleto();
+        console.log('[PerfilScreen] Backend sincronizado:', resultado);
+      } catch (syncError: any) {
+        console.error('[PerfilScreen] Error en sincronización backend:', syncError);
+        const statusCode = syncError?.response?.status;
+        const errorMessage = syncError?.response?.data?.message || syncError?.message;
+        
+        if (statusCode === 403) {
+          throw new Error('No tienes permisos para sincronizar. Contacta al administrador.');
+        } else if (statusCode === 500) {
+          throw new Error('Error en el servidor. Intenta de nuevo más tarde.');
+        } else {
+          throw new Error(errorMessage || 'Error al sincronizar con el servidor');
+        }
+      }
+      
+      // 3. Esperar un momento
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 4. Recargar todos los stores
+      console.log('[PerfilScreen] Recargando stores...');
+      await Promise.all([
+        fetchMesas(true),
+        fetchPlatos(true),
+        fetchIngredientes(true),
+        fetchTiposCartaOperativos(),
+      ]);
+      
+      // 5. Reconectar SSE de sala y carta
+      console.log('[PerfilScreen] Reconectando SSE...');
+      connectSala();
+      connectCarta();
+      
+      console.log('[PerfilScreen] Sincronización completada');
+      Alert.alert(
+        'Sincronización Completada',
+        `✅ ${resultado.resultados.carta}\n✅ ${resultado.resultados.catalogo}\n\nTodos los datos han sido actualizados y el canal en vivo reconectado.`
+      );
+    } catch (error: any) {
+      console.error('[PerfilScreen] Error en sincronización:', error);
+      
+      // Intentar reconectar SSE aunque haya fallado
+      console.log('[PerfilScreen] Reconectando SSE después de error...');
+      connectSala();
+      connectCarta();
+      
+      Alert.alert(
+        'Error de Sincronización',
+        error?.message || 'No se pudo completar la sincronización'
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getRolLabel = (rol: string) => {
     switch (rol) {
-      case 'PROPIETARIO': return 'Propietario';
-      case 'GERENTE': return 'Gerente';
-      case 'CAMARERO': return 'Camarero';
+      case 'OWNER': return 'Propietario';
+      case 'MANAGER': return 'Gerente';
+      case 'WAITER': return 'Camarero';
       default: return rol;
     }
   };
@@ -50,6 +144,23 @@ export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
       </View>
 
       <Card style={styles.card}>
+        <TouchableOpacity 
+          style={[styles.menuItem, styles.syncItem]} 
+          onPress={handleSincronizar}
+          disabled={syncing}
+        >
+          {syncing ? (
+            <View style={styles.syncingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.syncingText}>🔄 Sincronizando...</Text>
+            </View>
+          ) : (
+            <Text style={styles.syncText}>🔄 Sincronizar Todo</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.separator} />
+
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
           <Text style={styles.menuText}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
@@ -98,6 +209,29 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     paddingVertical: spacing.md,
+  },
+  syncItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  syncingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  syncText: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  syncingText: {
+    ...typography.body,
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
   },
   menuText: {
     ...typography.body,

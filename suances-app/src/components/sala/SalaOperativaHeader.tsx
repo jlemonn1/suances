@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,15 +77,21 @@ export const SalaOperativaHeader: React.FC<Props> = ({
   };
 
   const franjaActual = getFranjaActual();
+  const onFranjaChangeRef = useRef(onFranjaChange);
+  onFranjaChangeRef.current = onFranjaChange;
+  const prevFranjaIdRef = useRef<string | null>(null);
 
-  // Notificar al padre cuando cambia la franja
+  // Notificar al padre cuando cambia la franja (solo si realmente cambió)
   useEffect(() => {
-    if (onFranjaChange && franjaActual) {
-      onFranjaChange(franjaActual.id);
-    } else if (onFranjaChange) {
-      onFranjaChange(null);
+    const currentFranjaId = franjaActual?.id || null;
+    if (currentFranjaId !== prevFranjaIdRef.current) {
+      console.log('[SalaOperativaHeader] Franja cambió:', prevFranjaIdRef.current, '->', currentFranjaId);
+      prevFranjaIdRef.current = currentFranjaId;
+      if (onFranjaChangeRef.current) {
+        onFranjaChangeRef.current(currentFranjaId);
+      }
     }
-  }, [franjaActual?.id, onFranjaChange]);
+  }, [franjaActual?.id]);
 
   const handleToggleModo = async () => {
     const nuevoModo = modoVisualizacion === 'grid' ? 'coordenadas' : 'grid';

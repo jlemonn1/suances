@@ -59,6 +59,7 @@ public class BarService {
                 item.getSubtotal(),
                 item.getTipoRonda(),
                 item.getOrdenEnRonda(),
+                item.getNumeroRonda(),
                 item.getEstado(),
                 item.getNotas(),
                 item.getHoraPedido(),

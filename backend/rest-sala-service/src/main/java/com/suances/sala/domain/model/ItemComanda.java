@@ -37,6 +37,9 @@ public class ItemComanda {
     @Column(name = "orden_en_ronda")
     private Integer ordenEnRonda = 1;
 
+    @Column(name = "numero_ronda", nullable = false)
+    private Integer numeroRonda = 1;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ItemEstado estado = ItemEstado.PENDIENTE;
@@ -136,6 +139,14 @@ public class ItemComanda {
 
     public void setOrdenEnRonda(Integer ordenEnRonda) {
         this.ordenEnRonda = ordenEnRonda;
+    }
+
+    public Integer getNumeroRonda() {
+        return numeroRonda;
+    }
+
+    public void setNumeroRonda(Integer numeroRonda) {
+        this.numeroRonda = numeroRonda;
     }
 
     public ItemEstado getEstado() {

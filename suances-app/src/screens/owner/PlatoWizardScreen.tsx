@@ -78,6 +78,11 @@ export const PlatoWizardScreen: React.FC<PlatoWizardScreenProps> = ({
     }
   };
 
+  // Normaliza el separador decimal (coma o punto) a punto para parseFloat
+  const normalizeDecimal = (value: string): string => {
+    return value.replace(',', '.');
+  };
+
   const validateStep1 = (): boolean => {
     const newErrors: { nombre?: string; precio?: string } = {};
     
@@ -85,7 +90,7 @@ export const PlatoWizardScreen: React.FC<PlatoWizardScreenProps> = ({
       newErrors.nombre = 'El nombre es obligatorio';
     }
     
-    const precio = parseFloat(precioVenta);
+    const precio = parseFloat(normalizeDecimal(precioVenta));
     if (isNaN(precio) || precio <= 0) {
       newErrors.precio = 'Precio válido obligatorio';
     }
@@ -164,7 +169,7 @@ export const PlatoWizardScreen: React.FC<PlatoWizardScreenProps> = ({
       const data: PlatoRequest = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || undefined,
-        precioVenta: parseFloat(precioVenta),
+        precioVenta: parseFloat(normalizeDecimal(precioVenta)),
         categoriaId: categoriaSeleccionada?.id,
       };
 

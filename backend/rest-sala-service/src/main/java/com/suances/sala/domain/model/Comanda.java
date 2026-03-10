@@ -22,6 +22,9 @@ public class Comanda {
     @Column(name = "camarero_id", nullable = false)
     private UUID camareroId;
 
+    @Column(name = "camarero_nombre", length = 100)
+    private String camareroNombre;
+
     @Column(nullable = false, unique = true, length = 20)
     private String codigo;
 
@@ -44,6 +47,9 @@ public class Comanda {
     @Enumerated(EnumType.STRING)
     @Column(name = "ronda_actual")
     private TipoRonda rondaActual = TipoRonda.ENTRANTE;
+
+    @Column(name = "numero_ronda_actual", nullable = false)
+    private Integer numeroRondaActual = 1;
 
     @Column(name = "ticket_impreso")
     private Boolean ticketImpreso = false;
@@ -95,6 +101,14 @@ public class Comanda {
 
     public void setCamareroId(UUID camareroId) {
         this.camareroId = camareroId;
+    }
+
+    public String getCamareroNombre() {
+        return camareroNombre;
+    }
+
+    public void setCamareroNombre(String camareroNombre) {
+        this.camareroNombre = camareroNombre;
     }
 
     public String getCodigo() {
@@ -183,6 +197,14 @@ public class Comanda {
 
     public void setRondaActual(TipoRonda rondaActual) {
         this.rondaActual = rondaActual;
+    }
+
+    public Integer getNumeroRondaActual() {
+        return numeroRondaActual;
+    }
+
+    public void setNumeroRondaActual(Integer numeroRondaActual) {
+        this.numeroRondaActual = numeroRondaActual;
     }
 
     public Boolean getTicketImpreso() {

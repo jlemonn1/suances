@@ -90,7 +90,7 @@ public class CartaOperativaController {
     }
 
     @PostMapping("/sync")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     public String sincronizarCarta() {
         cartaSyncService.sincronizarCartaCompleta();
         return "Sincronización de carta iniciada";

@@ -18,9 +18,9 @@ interface PersonalFormScreenProps {
 }
 
 const ROLES: { value: Rol; label: string; description: string }[] = [
-  { value: 'PROPIETARIO', label: 'Propietario', description: 'Acceso total al sistema' },
-  { value: 'GERENTE', label: 'Gerente', description: 'Gestión de carta e inventario' },
-  { value: 'CAMARERO', label: 'Camarero', description: 'Acceso limitado a pedidos' },
+  { value: 'OWNER', label: 'Propietario', description: 'Acceso total al sistema' },
+  { value: 'MANAGER', label: 'Gerente', description: 'Gestión de carta e inventario' },
+  { value: 'WAITER', label: 'Camarero', description: 'Acceso limitado a pedidos' },
 ];
 
 export const PersonalFormScreen: React.FC<PersonalFormScreenProps> = ({
@@ -34,7 +34,7 @@ export const PersonalFormScreen: React.FC<PersonalFormScreenProps> = ({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState(initialData?.fullName || '');
-  const [role, setRole] = useState<Rol>(initialData?.role || 'CAMARERO');
+  const [role, setRole] = useState<Rol>(initialData?.role || 'WAITER');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;

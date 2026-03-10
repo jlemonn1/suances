@@ -1,55 +1,64 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
+  InteractionManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Loading, EmptyState, Button } from '../../components/common';
+import { RondaCard } from '../../components/comanda/RondaCard';
+import { ComandaHeader } from '../../components/comanda/ComandaHeader';
+import { ModalRondaActual } from '../../components/comanda/ModalRondaActual';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { useSalaStore } from '../../store/salaStore';
 import { useAuthStore } from '../../store/authStore';
-import type { Pedido, ComandaEstado } from '../../types/sala';
-import { BottomSheetCarta } from './BottomSheetCarta';
 
 export const ComandaDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { comandaId } = route.params;
 
-  const [showCarta, setShowCarta] = useState(false);
+  const [showModalRonda, setShowModalRonda] = useState(false);
 
   const {
-    comandaActiva,
+    comandaConRondas,
     loadingComandas,
     loadingAccion,
-    fetchComanda,
-    cambiarEstadoPedido,
+    fetchComandaConRondas,
     cerrarComanda,
+    itemsSeleccionadosEliminar,
+    modoEdicionEliminar,
+    toggleSeleccionItemEliminar,
+    limpiarSeleccionEliminar,
+    setModoEdicionEliminar,
+    eliminarItems,
   } = useSalaStore();
 
   const { user } = useAuthStore();
-
   const isOwnerOrManager = user?.rol === 'OWNER' || user?.rol === 'MANAGER';
+
+  const getRondaActual = (): number => {
+    return comandaConRondas?.numeroRondaActual || 1;
+  };
 
   useFocusEffect(
     useCallback(() => {
-      fetchComanda(comandaId);
-    }, [comandaId, fetchComanda])
+      console.log('[ComandaDetail] Cargando comanda:', comandaId);
+      fetchComandaConRondas(comandaId).catch((error) => {
+        console.error('[ComandaDetail] Error cargando comanda:', error);
+      });
+      // Limpiar modo edición al salir
+      return () => {
+        limpiarSeleccionEliminar();
+      };
+    }, [comandaId])
   );
-
-  const handleServirPedido = async (pedidoId: string) => {
-    try {
-      await cambiarEstadoPedido(pedidoId, 'SERVIDO');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo marcar el pedido como servido');
-    }
-  };
 
   const handlePedirCuenta = async () => {
     Alert.alert(
@@ -62,7 +71,7 @@ export const ComandaDetailScreen: React.FC = () => {
           onPress: async () => {
             try {
               await cerrarComanda(comandaId, 'TARJETA');
-              fetchComanda(comandaId);
+              fetchComandaConRondas(comandaId);
             } catch (error) {
               Alert.alert('Error', 'No se pudo pedir la cuenta');
             }
@@ -74,6 +83,43 @@ export const ComandaDetailScreen: React.FC = () => {
 
   const handleCobrar = () => {
     navigation.navigate('Cobro', { comandaId });
+  };
+
+  const handleToggleEdicion = () => {
+    setModoEdicionEliminar(!modoEdicionEliminar);
+  };
+
+  const handleCancelarEdicion = () => {
+    limpiarSeleccionEliminar();
+  };
+
+  const handleEliminarSeleccionados = () => {
+    if (itemsSeleccionadosEliminar.length === 0) return;
+
+    Alert.prompt(
+      'Eliminar Items',
+      `¿Motivo para eliminar ${itemsSeleccionadosEliminar.length} item(s)?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async (motivo?: string) => {
+            if (motivo && motivo.trim()) {
+              try {
+                await eliminarItems(comandaId, motivo);
+                Alert.alert('Éxito', 'Items eliminados correctamente');
+              } catch (error) {
+                Alert.alert('Error', 'No se pudieron eliminar los items');
+              }
+            } else {
+              Alert.alert('Error', 'Debes indicar un motivo');
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
   };
 
   const handleCancelarComanda = () => {
@@ -106,176 +152,92 @@ export const ComandaDetailScreen: React.FC = () => {
     );
   };
 
-  const getEstadoColor = (estado: string): string => {
-    switch (estado) {
-      case 'PENDIENTE':
-        return colors.warning;
-      case 'EN_PREPARACION':
-        return colors.primary;
-      case 'LISTO':
-        return colors.success;
-      case 'SERVIDO':
-        return colors.success;
-      case 'CANCELADO':
-        return colors.error;
-      default:
-        return colors.textSecondary;
-    }
-  };
-
-  const getEstadoIcon = (estado: string): keyof typeof Ionicons.glyphMap => {
-    switch (estado) {
-      case 'PENDIENTE':
-        return 'time-outline';
-      case 'EN_PREPARACION':
-        return 'flame-outline';
-      case 'LISTO':
-        return 'checkmark-circle';
-      case 'SERVIDO':
-        return 'checkmark-done';
-      case 'CANCELADO':
-        return 'close-circle';
-      default:
-        return 'help-circle';
-    }
-  };
-
-  const renderPedido = ({ item }: { item: Pedido }) => {
-    const canServir = item.estado === 'PENDIENTE' || item.estado === 'LISTO';
-
-    return (
-      <View style={styles.pedidoCard}>
-        <View style={styles.pedidoHeader}>
-          <View style={styles.pedidoInfo}>
-            <Text style={styles.pedidoNombre}>{item.nombrePlato}</Text>
-            <Text style={styles.pedidoCantidad}>x{item.cantidad}</Text>
-          </View>
-          <View style={[styles.estadoBadge, { backgroundColor: getEstadoColor(item.estado) }]}>
-            <Ionicons
-              name={getEstadoIcon(item.estado)}
-              size={12}
-              color={colors.surface}
-            />
-            <Text style={styles.estadoText}>{item.estado}</Text>
-          </View>
-        </View>
-
-        {item.notas && (
-          <Text style={styles.pedidoNotas}>Nota: {item.notas}</Text>
-        )}
-
-        <View style={styles.pedidoFooter}>
-          <Text style={styles.pedidoSubtotal}>
-            {(item.precioUnitario * item.cantidad).toFixed(2)}€
-          </Text>
-          {canServir && (
-            <Button
-              title="Servir"
-              size="small"
-              variant="outline"
-              onPress={() => handleServirPedido(item.id)}
-              loading={loadingAccion}
-            />
-          )}
-        </View>
-      </View>
-    );
-  };
-
-  if (loadingComandas || !comandaActiva) {
+  if (loadingComandas) {
     return <Loading fullScreen message="Cargando comanda..." />;
   }
 
-  const { estado, total, numeroComensales, pedidos } = comandaActiva;
+  if (!comandaConRondas || !comandaConRondas.id) {
+    console.error('[ComandaDetail] comandaConRondas es null o inválida:', comandaConRondas);
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
+          <Text style={styles.errorText}>Error al cargar la comanda</Text>
+          <Button
+            title="Reintentar"
+            onPress={() => fetchComandaConRondas(comandaId)}
+            style={styles.retryButton}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  console.log('[ComandaDetail] Renderizando comanda:', { 
+    id: comandaConRondas.id, 
+    estado: comandaConRondas.estado, 
+    rondasCount: comandaConRondas.rondas?.length 
+  });
+  
+  const { 
+    estado = 'ABIERTA', 
+    rondas = [] 
+  } = comandaConRondas;
   const puedeAgregarPedidos = estado === 'ABIERTA' || estado === 'EN_PREPARACION';
   const puedePedirCuenta = estado === 'SERVIDA';
   const puedeCobrar = estado === 'CUENTA';
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={styles.header}>
-        <View style={styles.headerInfo}>
-          <View style={styles.codigoContainer}>
-            <Text style={styles.codigo}>{comandaActiva.codigo}</Text>
-            <View style={[styles.estadoBadgeHeader, { backgroundColor: getEstadoColor(estado) }]}>
-              <Text style={styles.estadoTextHeader}>{estado}</Text>
-            </View>
-          </View>
-          <Text style={styles.mesaInfo}>
-            Mesa {comandaActiva.mesaNumero} · {numeroComensales} comensales
-          </Text>
-          <Text style={styles.camareroInfo}>
-            <Ionicons name="person-outline" size={14} color={colors.textSecondary} />{' '}
-            {comandaActiva.camareroNombre}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.resumenBar}>
-        <View style={styles.resumenItem}>
-          <Text style={styles.resumenLabel}>Total</Text>
-          <Text style={styles.resumenTotal}>{total.toFixed(2)}€</Text>
-        </View>
-        <View style={styles.resumenItem}>
-          <Text style={styles.resumenLabel}>Pedidos</Text>
-          <Text style={styles.resumenValue}>{pedidos?.length || 0}</Text>
-        </View>
-      </View>
-
-      <FlatList
-        data={pedidos || []}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPedido}
-        contentContainerStyle={pedidos?.length === 0 ? styles.emptyContainer : styles.list}
-        ListEmptyComponent={
-          <EmptyState
-            title="Sin pedidos"
-            message="No hay pedidos en esta comanda"
-          />
-        }
+    <SafeAreaView style={styles.container} edges={[]}>
+      {/* Header compacto con toda la info */}
+      <ComandaHeader
+        comanda={comandaConRondas}
+        isOwnerOrManager={isOwnerOrManager}
+        modoEdicion={modoEdicionEliminar}
+        itemsSeleccionados={itemsSeleccionadosEliminar}
+        puedeAgregarPedidos={puedeAgregarPedidos}
+        puedePedirCuenta={puedePedirCuenta}
+        onAddPlatos={() => setShowModalRonda(true)}
+        onFinalizar={handlePedirCuenta}
+        onToggleEdicion={handleToggleEdicion}
+        onCancelarEdicion={handleCancelarEdicion}
+        onEliminarSeleccionados={handleEliminarSeleccionados}
+        onCerrar={() => navigation.goBack()}
       />
 
-      <View style={styles.footer}>
-        {puedeAgregarPedidos && (
-          <Button
-            title="Agregar Pedido"
-            onPress={() => setShowCarta(true)}
-            style={styles.agregarButton}
-          />
-        )}
+      {/* Lista de Rondas - ocupa todo el espacio */}
+      <View style={styles.contentContainer}>
+        <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
+          {!rondas || rondas.length === 0 ? (
+            <EmptyState
+              title="Sin pedidos"
+              message="No hay pedidos en esta comanda"
+            />
+          ) : (
+            rondas.filter(ronda => ronda && typeof ronda.numeroRonda === 'number').map((ronda) => (
+              <RondaCard
+                key={`ronda-${ronda.numeroRonda}`}
+                ronda={ronda}
+                modoEdicion={modoEdicionEliminar}
+                itemsSeleccionados={itemsSeleccionadosEliminar}
+                onSeleccionarItem={toggleSeleccionItemEliminar}
+              />
+            ))
+          )}
+        </ScrollView>
 
-        {puedePedirCuenta && (
-          <Button
-            title="Pedir Cuenta"
-            onPress={handlePedirCuenta}
-            variant="secondary"
-            loading={loadingAccion}
-            style={styles.cuentaButton}
-          />
-        )}
-
-        {puedeCobrar && (
-          <Button
-            title="Cobrar"
-            onPress={handleCobrar}
-            style={styles.cobrarButton}
-          />
-        )}
-
+        {/* Botón Cancelar Comanda - flotante, solo para OWNER/MANAGER */}
         {isOwnerOrManager && estado !== 'COBRADA' && estado !== 'CANCELADA' && (
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancelarComanda}>
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-            <Text style={styles.cancelText}>Cancelar Comanda</Text>
+          <TouchableOpacity style={styles.cancelButtonFloating} onPress={handleCancelarComanda}>
+            <Ionicons name="trash-outline" size={16} color={colors.error} />
+            <Text style={styles.cancelTextFloating}>Cancelar</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      <BottomSheetCarta
-        visible={showCarta}
-        comandaId={comandaId}
-        onClose={() => setShowCarta(false)}
-      />
+      
+
+    
     </SafeAreaView>
   );
 };
@@ -285,150 +247,56 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerInfo: {
-    gap: spacing.xs,
-  },
-  codigoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  codigo: {
-    ...typography.h2,
-    color: colors.text,
-  },
-  estadoBadgeHeader: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  estadoTextHeader: {
-    ...typography.caption,
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  mesaInfo: {
-    ...typography.body,
-    color: colors.text,
-  },
-  camareroInfo: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  resumenBar: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  resumenItem: {
+  contentContainer: {
     flex: 1,
+    position: 'relative',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingTop: spacing.md,
+    minHeight: '100%',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.xl,
   },
-  resumenLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  resumenTotal: {
-    ...typography.h2,
-    color: colors.success,
-  },
-  resumenValue: {
+  errorText: {
     ...typography.h3,
-    color: colors.text,
+    color: colors.error,
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
-  list: {
-    padding: spacing.md,
+  retryButton: {
+    marginTop: spacing.md,
   },
-  emptyContainer: {
-    flex: 1,
-  },
-  pedidoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-  },
-  pedidoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xs,
-  },
-  pedidoInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  pedidoNombre: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-  },
-  pedidoCantidad: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  estadoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  estadoText: {
-    ...typography.caption,
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  pedidoNotas: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: spacing.xs,
-  },
-  pedidoFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  pedidoSubtotal: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  footer: {
-    backgroundColor: colors.surface,
-    padding: spacing.md,
-    gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  agregarButton: {},
-  cuentaButton: {},
-  cobrarButton: {},
-  cancelButton: {
+  cancelButtonFloating: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.md,
+    width: '30%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.error,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  cancelText: {
+  cancelTextFloating: {
     ...typography.bodySmall,
     color: colors.error,
+    marginLeft: spacing.xs,
+    fontWeight: '600',
   },
 });

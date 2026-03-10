@@ -24,5 +24,7 @@ public record ItemComandaRequest(
         @Size(max = 500, message = "Las notas no pueden exceder 500 caracteres")
         String notas,
 
-        Integer ordenEnRonda
+        Integer ordenEnRonda,
+
+        Integer numeroRonda
 ) {}

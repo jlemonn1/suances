@@ -37,9 +37,9 @@ export const PersonalGuide: React.FC<PersonalGuideProps> = ({
   const activos = personnel.filter((p: any) => p.activo).length;
   const inactivos = personnel.filter((p: any) => !p.activo).length;
   
-  const propietarios = personnel.filter((p: any) => p.rol === 'PROPIETARIO' && p.activo).length;
-  const gerentes = personnel.filter((p: any) => p.rol === 'GERENTE' && p.activo).length;
-  const camareros = personnel.filter((p: any) => p.rol === 'CAMARERO' && p.activo).length;
+  const propietarios = personnel.filter((p: any) => p.rol === 'OWNER' && p.activo).length;
+  const gerentes = personnel.filter((p: any) => p.rol === 'MANAGER' && p.activo).length;
+  const camareros = personnel.filter((p: any) => p.rol === 'WAITER' && p.activo).length;
 
   const handleLayout = (sectionId: string) => (event: LayoutChangeEvent) => {
     const { y } = event.nativeEvent.layout;
@@ -163,7 +163,7 @@ export const PersonalGuide: React.FC<PersonalGuideProps> = ({
                 <Text style={[styles.roleIconText, { color: '#F59E0B' }]}>★</Text>
               </View>
               <View>
-                <Text style={styles.roleName}>PROPIETARIO</Text>
+                <Text style={styles.roleName}>OWNER</Text>
                 <Text style={styles.roleDesc}>Acceso total al sistema</Text>
               </View>
             </View>
@@ -197,7 +197,7 @@ export const PersonalGuide: React.FC<PersonalGuideProps> = ({
                 <Text style={[styles.roleIconText, { color: '#8B5CF6' }]}>⚡</Text>
               </View>
               <View>
-                <Text style={styles.roleName}>GERENTE</Text>
+                <Text style={styles.roleName}>MANAGER</Text>
                 <Text style={styles.roleDesc}>Gestión completa excepto personal</Text>
               </View>
             </View>
@@ -231,7 +231,7 @@ export const PersonalGuide: React.FC<PersonalGuideProps> = ({
                 <Text style={[styles.roleIconText, { color: '#3B82F6' }]}>☕</Text>
               </View>
               <View>
-                <Text style={styles.roleName}>CAMARERO</Text>
+                <Text style={styles.roleName}>WAITER</Text>
                 <Text style={styles.roleDesc}>Solo visualización</Text>
               </View>
             </View>

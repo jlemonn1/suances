@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import EventSource from 'react-native-sse';
 import { useSalaStore } from '../store/salaStore';
 import { API_CONFIG } from '../config';
@@ -6,152 +6,151 @@ import { API_CONFIG } from '../config';
 interface UseSalaSSEOptions {
   enabled?: boolean;
   salaId?: string;
+  franjaId?: string;
 }
 
 export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
-  const { enabled = true, salaId } = options;
+  const { enabled = true, salaId, franjaId } = options;
   const eventSourceRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const enabledRef = useRef(enabled);
+  const salaIdRef = useRef(salaId);
+  const franjaIdRef = useRef(franjaId);
+  
+  // Actualizar refs
+  enabledRef.current = enabled;
+  salaIdRef.current = salaId;
+  franjaIdRef.current = franjaId;
+  
   const { updateMesaFromSSE, fetchMesas, setSseConnected } = useSalaStore();
 
-  const connect = useCallback(() => {
-    console.log('[SALA-SSE] Intentando conectar...', 'EventSource existente:', eventSourceRef.current ? 'SÍ' : 'NO');
-    
-    if (eventSourceRef.current) {
-      console.log('[SALA-SSE] Ya hay conexión existente, cancelando');
+  useEffect(() => {
+    if (!enabled || !salaId) {
       return;
     }
+    
+    console.log('[SALA-SSE] Iniciando conexión SSE...');
+    
+    const connect = () => {
+      if (eventSourceRef.current) {
+        console.log('[SALA-SSE] Ya existe conexión, saltando');
+        return;
+      }
 
-    try {
-      const url = `${API_CONFIG.SALA_BASE_URL}/mesas/events`;
-      console.log('[SALA-SSE] Conectando a:', url);
+      try {
+        const url = `${API_CONFIG.SALA_BASE_URL}/mesas/events`;
+        console.log('[SALA-SSE] Conectando a:', url);
 
-      // El endpoint SSE es público, no necesita autenticación
-      const es = new EventSource(url);
-      
-      console.log('[SALA-SSE] EventSource creado exitosamente');
+        const es = new EventSource(url);
 
-      // Manejar apertura de conexión
-      es.addEventListener('open', () => {
-        console.log('[SALA-SSE] Conexión establecida');
-        setSseConnected(true); // Marcar como conectado
-      });
+        es.addEventListener('open', () => {
+          console.log('[SALA-SSE] Conexión establecida');
+          setSseConnected(true);
+        });
 
-      // Manejar evento de conexión exitosa del servidor
-      es.addEventListener('connected', (event: any) => {
-        console.log('[SALA-SSE] Evento connected recibido:', event.data);
-      });
+        es.addEventListener('connected', (event: any) => {
+          console.log('[SALA-SSE] Evento connected recibido');
+        });
 
-      // Manejar TODOS los mensajes (debug)
-      es.addEventListener('message', (event: any) => {
-        console.log('[SALA-SSE] Mensaje recibido:', event.type, event.data);
-      });
-
-      // Manejar evento mesa.reservada
-      es.addEventListener('mesa.reservada', (event: any) => {
-        console.log('[SALA-SSE] Evento mesa.reservada RAW:', event);
-        try {
-          const data = JSON.parse(event.data);
-          console.log('[SALA-SSE] Mesa reservada:', data);
-          
-          // Si es una modificación con cambio de mesa, hacer refetch completo
-          if (data.tipo === 'MODIFICADA' || data.tipo === 'CAMBIO_MESA') {
-            console.log('[SALA-SSE] Reserva modificada, haciendo refetch completo');
-            fetchMesas({ salaId });
-          } else {
-            updateMesaFromSSE({
-              mesaId: data.mesaId,
-              estado: 'RESERVADA',
-              reservaId: data.reservaId,
-              nombreCliente: data.nombreCliente,
-              franjaId: data.franjaId,
-            });
+        es.addEventListener('mesa.reservada', (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[SALA-SSE] Mesa reservada:', data.mesaId);
+            
+            if (data.tipo === 'MODIFICADA' || data.tipo === 'CAMBIO_MESA') {
+              console.log('[SALA-SSE] Reserva modificada, haciendo refetch');
+              fetchMesas({ salaId: salaIdRef.current, franjaId: franjaIdRef.current });
+            } else {
+              updateMesaFromSSE({
+                mesaId: data.mesaId,
+                estado: 'RESERVADA',
+                reservaId: data.reservaId,
+                nombreCliente: data.nombreCliente,
+                franjaId: data.franjaId,
+              });
+            }
+          } catch (error) {
+            console.error('[SALA-SSE] Error parseando mesa.reservada:', error);
           }
-        } catch (error) {
-          console.error('[SALA-SSE] Error parseando evento mesa.reservada:', error);
-        }
-      });
+        });
 
-      // Manejar evento mesa.liberada
-      es.addEventListener('mesa.liberada', (event: any) => {
-        console.log('[SALA-SSE] Evento mesa.liberada RAW:', event);
-        try {
-          const data = JSON.parse(event.data);
-          console.log('[SALA-SSE] Mesa liberada:', data);
-          
-          // Si es un cambio de mesa, hacer refetch completo para sincronizar ambas mesas
-          if (data.tipo === 'CAMBIO_MESA') {
-            console.log('[SALA-SSE] Cambio de mesa detectado, haciendo refetch completo');
-            fetchMesas({ salaId });
-          } else {
-            updateMesaFromSSE({
-              mesaId: data.mesaId,
-              estado: 'LIBRE',
-              reservaId: undefined,
-              nombreCliente: undefined,
-              franjaId: undefined,
-            });
+        es.addEventListener('mesa.liberada', (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[SALA-SSE] Mesa liberada:', data.mesaId);
+            
+            if (data.tipo === 'CAMBIO_MESA') {
+              fetchMesas({ salaId: salaIdRef.current, franjaId: franjaIdRef.current });
+            } else {
+              updateMesaFromSSE({
+                mesaId: data.mesaId,
+                estado: 'LIBRE',
+                reservaId: undefined,
+                nombreCliente: undefined,
+                franjaId: undefined,
+              });
+            }
+          } catch (error) {
+            console.error('[SALA-SSE] Error parseando mesa.liberada:', error);
           }
-        } catch (error) {
-          console.error('[SALA-SSE] Error parseando evento mesa.liberada:', error);
-        }
-      });
+        });
 
-      // Manejar evento mesa.estado_cambiado
-      es.addEventListener('mesa.estado_cambiado', (event: any) => {
-        console.log('[SALA-SSE] Evento mesa.estado_cambiado RAW:', event);
-        try {
-          const data = JSON.parse(event.data);
-          console.log('[SALA-SSE] Estado de mesa cambiado:', data);
-          fetchMesas({ salaId });
-        } catch (error) {
-          console.error('[SALA-SSE] Error parseando evento mesa.estado_cambiado:', error);
-        }
-      });
+        es.addEventListener('mesa.estado_cambiado', (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[SALA-SSE] Estado de mesa cambiado:', data.mesaId);
+            fetchMesas({ salaId: salaIdRef.current, franjaId: franjaIdRef.current });
+          } catch (error) {
+            console.error('[SALA-SSE] Error parseando mesa.estado_cambiado:', error);
+          }
+        });
 
-      // Manejar errores
-      es.addEventListener('error', (event: any) => {
-        // Silenciar error - solo marcar como desconectado
-        setSseConnected(false);
-        
-        // Reconectar después de 5 segundos
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-        }
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('[SALA-SSE] Intentando reconexión...');
-          disconnect();
-          connect();
-        }, 5000);
-      });
+        es.addEventListener('error', (event: any) => {
+          console.error('[SALA-SSE] Error en conexión');
+          setSseConnected(false);
+          
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          
+          eventSourceRef.current?.close();
+          eventSourceRef.current = null;
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (enabledRef.current && salaIdRef.current) {
+              console.log('[SALA-SSE] Reconectando...');
+              connect();
+            }
+          }, 5000);
+        });
 
-      eventSourceRef.current = es;
-      console.log('[SALA-SSE] EventSource guardado en ref');
-    } catch (error) {
-      console.error('[SALA-SSE] Error al crear EventSource:', error);
-    }
-  }, [updateMesaFromSSE, fetchMesas, salaId, setSseConnected]);
+        eventSourceRef.current = es;
+      } catch (error) {
+        console.error('[SALA-SSE] Error al crear EventSource:', error);
+      }
+    };
 
-  const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      console.log('[SALA-SSE] Desconectado');
-    }
-  }, []);
+    const disconnect = () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+        console.log('[SALA-SSE] Desconectado');
+      }
+    };
 
-  useEffect(() => {
-    if (enabled && salaId) {
-      connect();
-    }
+    connect();
+
     return () => {
       disconnect();
     };
-  }, [enabled, connect, disconnect, salaId]);
+  }, [enabled, salaId, franjaId, updateMesaFromSSE, fetchMesas, setSseConnected]);
 
-  return { connect, disconnect };
+  return { 
+    connect: () => {}, 
+    disconnect: () => {} 
+  };
 };

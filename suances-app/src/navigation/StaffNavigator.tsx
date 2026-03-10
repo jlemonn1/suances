@@ -1,16 +1,33 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
 import { SalaScreen } from '../screens/staff/SalaScreen';
+import { ComandaDetailScreen } from '../screens/staff/ComandaDetailScreen';
 
 import { colors, spacing, typography } from '../theme';
 import { useSalaStore } from '../store/salaStore';
 
 const Tab = createBottomTabNavigator();
+const SalaStack = createNativeStackNavigator();
+
+// Stack Navigator para la sección de Sala
+const SalaStackNavigator = () => {
+  return (
+    <SalaStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <SalaStack.Screen name="SalaMain" component={SalaScreen} />
+      <SalaStack.Screen name="ComandaDetail" component={ComandaDetailScreen} />
+    </SalaStack.Navigator>
+  );
+};
 
 // Componente del título del header con indicador de conexión SSE
 const HeaderTitle: React.FC<{ title: string }> = ({ title }) => {
@@ -55,7 +72,7 @@ export const StaffNavigator = () => {
     >
       <Tab.Screen 
         name="Sala" 
-        component={SalaScreen}
+        component={SalaStackNavigator}
         options={{ 
           headerTitle: () => <HeaderTitle title="Sala" />,
           title: 'Sala' 

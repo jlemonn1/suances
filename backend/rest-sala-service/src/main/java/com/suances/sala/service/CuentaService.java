@@ -5,42 +5,47 @@ import com.suances.sala.domain.model.Comanda;
 import com.suances.sala.domain.model.ItemComanda;
 import com.suances.sala.domain.model.enums.ComandaEstado;
 import com.suances.sala.domain.model.enums.TipoRonda;
+import com.suances.sala.event.SalaEventProducer;
+import com.suances.sala.event.SseEmitterManager;
 import com.suances.sala.exception.BusinessRuleException;
 import com.suances.sala.exception.ResourceNotFoundException;
 import com.suances.sala.repository.ComandaRepository;
 import com.suances.sala.repository.ItemComandaRepository;
-import com.suances.sala.event.SalaEventProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class CuentaService {
+
+    private static final Logger log = LoggerFactory.getLogger(CuentaService.class);
 
     private final ComandaRepository comandaRepository;
     private final ItemComandaRepository itemComandaRepository;
     private final ItemComandaService itemComandaService;
     private final MesaOperativaService mesaOperativaService;
     private final SalaEventProducer eventProducer;
+    private final SseEmitterManager sseEmitterManager;
 
     public CuentaService(ComandaRepository comandaRepository,
                          ItemComandaRepository itemComandaRepository,
                          ItemComandaService itemComandaService,
                          MesaOperativaService mesaOperativaService,
-                         SalaEventProducer eventProducer) {
+                         SalaEventProducer eventProducer,
+                         SseEmitterManager sseEmitterManager) {
         this.comandaRepository = comandaRepository;
         this.itemComandaRepository = itemComandaRepository;
         this.itemComandaService = itemComandaService;
         this.mesaOperativaService = mesaOperativaService;
         this.eventProducer = eventProducer;
+        this.sseEmitterManager = sseEmitterManager;
     }
 
     @Transactional
@@ -98,8 +103,17 @@ public class CuentaService {
             com.suances.sala.domain.model.enums.MesaEstadoOperativo.LIBRE, 
             null
         );
+        
+        // Emitir evento SSE para actualizar estado de mesa en tiempo real
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("mesaId", comanda.getMesaId());
+        eventData.put("estado", "LIBRE");
+        eventData.put("comandaId", comanda.getId());
+        eventData.put("timestamp", OffsetDateTime.now().toString());
+        sseEmitterManager.broadcast("mesa.estado_cambiado", eventData);
+        log.info("[SSE] Emitido mesa.estado_cambiado para mesa {} - LIBRE", comanda.getMesaId());
 
-        // Publicar evento
+        // Publicar evento a Redis
         eventProducer.publicarComandaCobrada(saved, tipoPago, montoRecibido);
 
         return saved;

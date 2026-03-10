@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { DateSelector } from './DateSelector';
 
+const COLLAPSE_THRESHOLD = 80;
+const EXPAND_THRESHOLD = 40;
+
 interface QuickActionsBarProps {
   onNuevaReserva: () => void;
   onReservasOnline: () => void;
@@ -45,8 +48,10 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
   const [baseHeight, setBaseHeight] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
   const searchHeightAnim = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -54,6 +59,18 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
       setBaseHeight(height);
     }
   }, [baseHeight]);
+
+  useEffect(() => {
+    const listener = scrollY.addListener(({ value }) => {
+      if (!isCollapsed && value > COLLAPSE_THRESHOLD && lastScrollY.current <= COLLAPSE_THRESHOLD) {
+        setIsCollapsed(true);
+      } else if (isCollapsed && value < EXPAND_THRESHOLD && lastScrollY.current >= EXPAND_THRESHOLD) {
+        setIsCollapsed(false);
+      }
+      lastScrollY.current = value;
+    });
+    return () => scrollY.removeListener(listener);
+  }, [scrollY, isCollapsed]);
 
   useEffect(() => {
     Animated.timing(searchHeightAnim, {
@@ -85,25 +102,45 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
     onSearch(text);
   };
 
+  const expandedHeightAnim = useRef(new Animated.Value(1)).current;
+  const collapsedOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(expandedHeightAnim, {
+        toValue: isCollapsed ? 0 : 1,
+        duration: 200,
+        useNativeDriver: false,
+      }),
+      Animated.timing(collapsedOpacityAnim, {
+        toValue: isCollapsed ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isCollapsed]);
+
   const expandedStyle = {
-    opacity: scrollY.interpolate({
-      inputRange: [0, 50, 100],
-      outputRange: [1, 0.3, 0],
-      extrapolate: 'clamp',
+    opacity: expandedHeightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
     }),
-    height: scrollY.interpolate({
-      inputRange: [0, 50, 100],
-      outputRange: [baseHeight || 200, 100, 0],
-      extrapolate: 'clamp',
+    height: expandedHeightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, baseHeight || 200],
+    }),
+    marginTop: expandedHeightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, spacing.sm],
+    }),
+    marginHorizontal: expandedHeightAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, spacing.md],
     }),
   };
 
   const collapsedStyle = {
-    opacity: scrollY.interpolate({
-      inputRange: [50, 100, 150],
-      outputRange: [0, 0.5, 1],
-      extrapolate: 'clamp',
-    }),
+    opacity: collapsedOpacityAnim,
   };
 
   const searchContainerStyle = {
@@ -111,7 +148,7 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
     opacity: searchHeightAnim.interpolate({
       inputRange: [0, 25, 50],
       outputRange: [0, 0.5, 1],
-      extrapolate: 'clamp' as const,
+      extrapolate: 'clamp',
     }),
     overflow: 'hidden' as const,
   };
@@ -225,8 +262,6 @@ const styles = StyleSheet.create({
   },
   expandedContainer: {
     gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
     overflow: 'hidden',
   },
   collapsedContainer: {

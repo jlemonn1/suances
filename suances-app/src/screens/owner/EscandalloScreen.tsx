@@ -91,6 +91,11 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
     setDetalles(detalles.filter((d) => d.ingredienteId !== ingredienteId));
   };
 
+  // Normaliza el separador decimal (coma o punto) a punto para parseFloat
+  const normalizeDecimal = (value: string): string => {
+    return value.replace(',', '.');
+  };
+
   const updateCantidad = (ingredienteId: string, cantidad: number) => {
     setDetalles(
       detalles.map((d) =>
@@ -238,7 +243,7 @@ export const EscandalloScreen: React.FC<EscandalloScreenProps> = ({
                   style={styles.cantidadInput}
                   value={item.cantidad.toString()}
                   onChangeText={(text) => {
-                    const num = parseFloat(text) || 0;
+                    const num = parseFloat(normalizeDecimal(text)) || 0;
                     updateCantidad(item.ingredienteId, num);
                   }}
                   keyboardType="decimal-pad"

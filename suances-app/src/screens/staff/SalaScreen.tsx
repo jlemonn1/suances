@@ -40,7 +40,7 @@ export const SalaScreen: React.FC = () => {
   } = useSalaStore();
 
   // Conectar a SSE para actualizaciones en tiempo real
-  useSalaSSE({ enabled: true, salaId: salaSeleccionada });
+  useSalaSSE({ enabled: true, salaId: salaSeleccionada, franjaId: franjaSeleccionada });
 
   // Cargar modo guardado y datos iniciales
   useEffect(() => {
@@ -127,12 +127,10 @@ export const SalaScreen: React.FC = () => {
   const handleMesaPress = (mesa: MesaOperativa) => {
     setMesaSeleccionada(mesa);
 
-    if (mesa.estadoOperativo === 'LIBRE') {
+    if (mesa.estadoOperativo === 'LIBRE' || mesa.estadoOperativo === 'RESERVADA') {
       setShowNuevaComanda(true);
     } else if (mesa.estadoOperativo === 'OCUPADA' && mesa.comandaActivaId) {
       navigation.navigate('ComandaDetail', { comandaId: mesa.comandaActivaId });
-    } else if (mesa.estadoOperativo === 'RESERVADA') {
-      Alert.alert('Mesa Reservada', `Cliente: ${mesa.nombreClienteReserva || 'Sin nombre'}`);
     }
   };
 

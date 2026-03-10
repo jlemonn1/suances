@@ -33,6 +33,19 @@ export interface ComandaDetalle extends Comanda {
   };
 }
 
+export type TipoRonda = 'ENTRANTE' | 'PRIMERO' | 'SEGUNDO' | 'POSTRE' | 'BEBIDA' | 'SIN_ORDEN';
+
+// Tipo para platos en ronda actual (antes de enviar a cocina)
+export interface PlatoRondaItem {
+  id: string;              // UUID temporal generado localmente
+  platoId: string;
+  nombrePlato: string;
+  cantidad: number;
+  tipoRonda?: TipoRonda;   // undefined = sin asignar (se enviará como SIN_ORDEN)
+  notas?: string;
+  precioUnitario: number;
+}
+
 export interface Pedido {
   id: string;
   comandaId: string;
@@ -42,11 +55,42 @@ export interface Pedido {
   precioUnitario: number;
   subtotal: number;
   estado: PedidoEstado;
+  tipoRonda: TipoRonda;
+  numeroRonda: number;
   notas?: string;
   horaPedido: string;
+  horaEnvioCocina?: string;
   horaServido?: string;
   horaListo?: string;
   advertenciaStock?: boolean;
+}
+
+export interface Ronda {
+  numeroRonda: number;
+  tipoRonda: string;
+  horaEnvio?: string;
+  pedidos: Pedido[];
+}
+
+export interface ComandaDetalleRondas {
+  id: string;
+  codigo: string;
+  mesaId: string;
+  mesaNumero?: number;
+  nombreSala?: string;
+  camareroId: string;
+  camareroNombre?: string;
+  numeroRondaActual: number;
+  estado: ComandaEstado;
+  numeroComensales: number;
+  notas?: string;
+  total: number;
+  descuentoPorcentaje: number;
+  fechaApertura: string;
+  fechaCierre?: string;
+  reservaId?: string;
+  nombreClienteReserva?: string;
+  rondas: Ronda[];
 }
 
 export interface MesaOperativa {
@@ -140,14 +184,35 @@ export interface CobroResponse {
 
 export interface CrearComandaRequest {
   mesaId: string;
+  camareroId: string;
+  camareroNombre: string;
   numeroComensales: number;
   notas?: string;
 }
 
 export interface AgregarPedidoRequest {
   platoId: string;
+  nombrePlato: string;
   cantidad: number;
   notas?: string;
+  tipoRonda: TipoRonda;
+  numeroRonda: number;
+}
+
+// Item del carrito local (antes de enviar a cocina)
+export interface CarritoItem {
+  id: string; // ID temporal local
+  platoId: string;
+  nombrePlato: string;
+  cantidad: number;
+  notas?: string;
+  tipoRonda: TipoRonda;
+  precioUnitario: number;
+}
+
+export interface EnviarCocinaRequest {
+  ronda: TipoRonda;
+  itemIds: string[];
 }
 
 export interface CobrarRequest {

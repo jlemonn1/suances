@@ -38,7 +38,8 @@ public class BarController {
                         TipoRonda.BEBIDA,
                         r.cantidad(),
                         r.notas(),
-                        r.ordenEnRonda()
+                        r.ordenEnRonda(),
+                        r.numeroRonda()
                 ))
                 .toList();
         

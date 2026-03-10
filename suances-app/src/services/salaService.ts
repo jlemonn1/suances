@@ -2,6 +2,7 @@ import { salaApi } from './api';
 import type {
   Comanda,
   ComandaDetalle,
+  ComandaDetalleRondas,
   Pedido,
   MesaOperativa,
   MesasResponse,
@@ -12,6 +13,8 @@ import type {
   CobrarRequest,
   FranjaHoraria,
   Sala,
+  EnviarCocinaRequest,
+  TipoRonda,
 } from '../types/sala';
 import type { PlatoOperativo, TipoCartaOperativo } from '../types/carta';
 
@@ -93,11 +96,18 @@ export const salaService = {
     comandaId: string,
     data: AgregarPedidoRequest
   ): Promise<Pedido[]> => {
-    const response = await salaApi.post<Pedido[]>(
-      `/comandas/${comandaId}/items`,
-      [data]
-    );
-    return response.data;
+    console.log('[salaService] agregarPedido iniciado:', { comandaId, data });
+    try {
+      const response = await salaApi.post<Pedido[]>(
+        `/comandas/${comandaId}/items`,
+        [data]
+      );
+      console.log('[salaService] agregarPedido respuesta:', response.status, response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] agregarPedido error:', error.message, error.response?.data);
+      throw error;
+    }
   },
 
   // Agregar múltiples pedidos (items)
@@ -140,6 +150,10 @@ export const salaService = {
     await salaApi.delete(`/pedidos/${id}`, { params: { motivo } });
   },
 
+  eliminarItem: async (comandaId: string, itemId: string, motivo: string): Promise<void> => {
+    await salaApi.delete(`/comandas/${comandaId}/items/${itemId}`, { params: { motivo } });
+  },
+
   // Cuenta
   obtenerCuenta: async (comandaId: string): Promise<CuentaResponse> => {
     const response = await salaApi.get<CuentaResponse>(
@@ -179,6 +193,33 @@ export const salaService = {
     return response.data;
   },
 
+  // Sincronizar carta completa (platos, tipos de carta, ingredientes)
+  sincronizarCarta: async (): Promise<string> => {
+    const response = await salaApi.post<string>('/carta/sync');
+    return response.data;
+  },
+
+  // Sincronizar TODO: carta + mesas + reservas
+  sincronizarTodoCompleto: async (): Promise<{ mensaje: string; resultados: { carta: string; catalogo: string } }> => {
+    console.log('[salaService] Iniciando sincronización completa...');
+    
+    // Ejecutar ambas sincronizaciones en paralelo
+    const [resultadoCarta, resultadoCatalogo] = await Promise.all([
+      salaApi.post<string>('/carta/sync'),
+      salaApi.post<string>('/mesas/sincronizar-todo'),
+    ]);
+    
+    console.log('[salaService] Sincronización completa finalizada');
+    
+    return {
+      mensaje: 'Sincronización completada exitosamente',
+      resultados: {
+        carta: resultadoCarta.data,
+        catalogo: resultadoCatalogo.data,
+      },
+    };
+  },
+
   // Carta operativa (desde tablas de sala-service)
   getPlatosOperativos: async (): Promise<PlatoOperativo[]> => {
     const response = await salaApi.get<PlatoOperativo[]>('/carta/platos');
@@ -198,5 +239,39 @@ export const salaService = {
   getCartaActivaOperativa: async (): Promise<TipoCartaOperativo[]> => {
     const response = await salaApi.get<TipoCartaOperativo[]>('/carta/tipos-carta/activa');
     return response.data;
+  },
+
+  // Nuevos métodos para gestión de rondas y envío a cocina
+  obtenerComandaConRondas: async (comandaId: string): Promise<ComandaDetalleRondas> => {
+    const response = await salaApi.get<ComandaDetalleRondas>(`/comandas/${comandaId}/detalle-rondas`);
+    return response.data;
+  },
+
+  enviarACocina: async (comandaId: string, data: EnviarCocinaRequest): Promise<void> => {
+    await salaApi.post(`/comandas/${comandaId}/items/enviar-cocina`, data);
+  },
+
+  crearYEnviarACocina: async (comandaId: string, items: AgregarPedidoRequest[]): Promise<Pedido[]> => {
+    console.log('[salaService] POST /comandas/${comandaId}/items/crear-y-enviar - Iniciando llamada API');
+    try {
+      const response = await salaApi.post<Pedido[]>(`/comandas/${comandaId}/items/crear-y-enviar`, items);
+      console.log('[salaService] POST /comandas/${comandaId}/items/crear-y-enviar - Respuesta exitosa:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] POST /comandas/${comandaId}/items/crear-y-enviar - Error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  crearNuevaRonda: async (comandaId: string): Promise<{ numeroRonda: number }> => {
+    console.log('[salaService] POST /comandas/${comandaId}/nueva-ronda - Iniciando llamada API');
+    try {
+      const response = await salaApi.post<{ numeroRonda: number }>(`/comandas/${comandaId}/nueva-ronda`);
+      console.log('[salaService] POST /comandas/${comandaId}/nueva-ronda - Respuesta exitosa:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] POST /comandas/${comandaId}/nueva-ronda - Error:', error.response?.data || error.message);
+      throw error;
+    }
   },
 };

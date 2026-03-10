@@ -20,11 +20,11 @@ interface PersonalListScreenProps {
 
 const getRoleLabel = (role: string): string => {
   switch (role) {
-    case 'PROPIETARIO':
+    case 'OWNER':
       return 'Propietario';
-    case 'GERENTE':
+    case 'MANAGER':
       return 'Gerente';
-    case 'CAMARERO':
+    case 'WAITER':
       return 'Camarero';
     default:
       return role;
@@ -33,11 +33,11 @@ const getRoleLabel = (role: string): string => {
 
 const getRoleColor = (role: string): string => {
   switch (role) {
-    case 'PROPIETARIO':
+    case 'OWNER':
       return colors.primary;
-    case 'GERENTE':
+    case 'MANAGER':
       return colors.accent;
-    case 'CAMARERO':
+    case 'WAITER':
       return colors.textSecondary;
     default:
       return colors.textSecondary;

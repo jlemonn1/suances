@@ -9,14 +9,14 @@ interface MesaCardProps {
   onPress: () => void;
 }
 
-const getEstadoColor = (estado: MesaEstadoOperativo): string => {
+const getEstadoColor = (estado: MesaEstadoOperativo, tieneComanda: boolean): string => {
   switch (estado) {
     case 'LIBRE':
       return colors.success;
     case 'OCUPADA':
       return colors.warning;
     case 'RESERVADA':
-      return colors.primary;
+      return tieneComanda ? colors.warning : colors.primary;
     case 'BLOQUEADA':
       return colors.error;
     case 'MANTENIMIENTO':
@@ -44,7 +44,7 @@ const getEstadoIcon = (estado: MesaEstadoOperativo): keyof typeof Ionicons.glyph
 };
 
 export const MesaCard: React.FC<MesaCardProps> = ({ mesa, onPress }) => {
-  const estadoColor = getEstadoColor(mesa.estadoOperativo);
+  const estadoColor = getEstadoColor(mesa.estadoOperativo, !!mesa.comandaActivaId);
   const estadoIcon = getEstadoIcon(mesa.estadoOperativo);
 
   return (

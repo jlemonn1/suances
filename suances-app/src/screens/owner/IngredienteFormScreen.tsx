@@ -66,6 +66,11 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
     fetchCategorias(true, 'INGREDIENTE');
   }, []);
 
+  // Normaliza el separador decimal (coma o punto) a punto para parseFloat
+  const normalizeDecimal = (value: string): string => {
+    return value.replace(',', '.');
+  };
+
   const validate = (): boolean => {
     const newErrors: { nombre?: string; precio?: string } = {};
     
@@ -73,7 +78,7 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
       newErrors.nombre = 'El nombre es obligatorio';
     }
     
-    const precio = parseFloat(precioPorUnidad);
+    const precio = parseFloat(normalizeDecimal(precioPorUnidad));
     if (isNaN(precio) || precio < 0) {
       newErrors.precio = 'Precio válido obligatorio';
     }
@@ -90,9 +95,9 @@ export const IngredienteFormScreen: React.FC<IngredienteFormScreenProps> = ({
       const data: IngredienteRequest = {
         nombre: nombre.trim(),
         unidadMedida,
-        precioPorUnidad: parseFloat(precioPorUnidad),
-        stockActual: parseFloat(stockActual) || 0,
-        umbralAlerta: parseFloat(umbralAlerta) || 10,
+        precioPorUnidad: parseFloat(normalizeDecimal(precioPorUnidad)),
+        stockActual: parseFloat(normalizeDecimal(stockActual)) || 0,
+        umbralAlerta: parseFloat(normalizeDecimal(umbralAlerta)) || 10,
         categoriaId: categoriaSeleccionada?.id,
       };
 

@@ -17,6 +17,7 @@ public record ItemComandaResponse(
         BigDecimal subtotal,
         TipoRonda tipoRonda,
         Integer ordenEnRonda,
+        Integer numeroRonda,
         ItemComanda.ItemEstado estado,
         String notas,
         OffsetDateTime horaPedido,

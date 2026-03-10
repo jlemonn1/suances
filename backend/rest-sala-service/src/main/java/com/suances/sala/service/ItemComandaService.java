@@ -87,6 +87,7 @@ public class ItemComandaService {
             item.setPrecioUnitario(precioUnitario);
             item.setTipoRonda(request.tipoRonda());
             item.setOrdenEnRonda(request.ordenEnRonda() != null ? request.ordenEnRonda() : 1);
+            item.setNumeroRonda(request.numeroRonda() != null ? request.numeroRonda() : comanda.getRondaActual() != null ? comanda.getRondaActual().ordinal() + 1 : 1);
             item.setEstado(ItemComanda.ItemEstado.PENDIENTE);
             item.setNotas(request.notas());
 
@@ -211,6 +212,51 @@ public class ItemComandaService {
         });
     }
 
+    @Transactional
+    public void enviarItemsACocina(UUID comandaId, List<UUID> itemIds) {
+        // Validar que todos los items pertenezcan a la comanda y estén pendientes
+        List<ItemComanda> items = itemComandaRepository.findAllById(itemIds);
+
+        if (items.size() != itemIds.size()) {
+            throw new ResourceNotFoundException("Algunos items no fueron encontrados");
+        }
+
+        // Validar que todos los items pertenecen a la comanda especificada
+        boolean allBelongToComanda = items.stream()
+                .allMatch(item -> item.getComandaId().equals(comandaId));
+        if (!allBelongToComanda) {
+            throw new BusinessRuleException("Todos los items deben pertenecer a la misma comanda");
+        }
+
+        // Validar que todos los items estén en estado PENDIENTE
+        boolean allPending = items.stream()
+                .allMatch(item -> item.getEstado() == ItemComanda.ItemEstado.PENDIENTE);
+        if (!allPending) {
+            throw new BusinessRuleException("Solo se pueden enviar a cocina items en estado PENDIENTE");
+        }
+
+        // Obtener la comanda para actualizar su estado
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        // Enviar items a cocina
+        OffsetDateTime ahora = OffsetDateTime.now();
+        items.forEach(item -> {
+            item.setEstado(ItemComanda.ItemEstado.EN_COCINA);
+            item.setHoraEnvioCocina(ahora);
+            itemComandaRepository.save(item);
+
+            // Notificar a carta-service
+            salaEventProducer.publicarItemEnviadoACocina(comandaId, item);
+        });
+
+        // Si la comanda está en estado ABIERTA, cambiarla a EN_PREPARACION
+        if (comanda.getEstado() == ComandaEstado.ABIERTA) {
+            comanda.setEstado(ComandaEstado.EN_PREPARACION);
+            comandaRepository.save(comanda);
+        }
+    }
+
     @Transactional(readOnly = true)
     public BigDecimal calcularTotalComanda(UUID comandaId) {
         return itemComandaRepository.findByComandaIdAndEstadoNot(comandaId, ItemComanda.ItemEstado.CANCELADO).stream()
@@ -227,6 +273,73 @@ public class ItemComandaService {
         comandaRepository.save(comanda);
     }
 
+    @Transactional
+    public List<ItemComandaResponse> crearYEnviarItemsACocina(UUID comandaId, List<ItemComandaRequest> requests) {
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        // Validar que la comanda esté en estado válido
+        if (comanda.getEstado() != ComandaEstado.ABIERTA && 
+            comanda.getEstado() != ComandaEstado.EN_PREPARACION) {
+            throw new BusinessRuleException("No se pueden agregar items a una comanda en estado: " + comanda.getEstado());
+        }
+
+        List<ItemComanda> itemsGuardados = new ArrayList<>();
+        List<ItemComandaResponse> responses = new ArrayList<>();
+        OffsetDateTime ahora = OffsetDateTime.now();
+
+        for (ItemComandaRequest request : requests) {
+            // Obtener plato de carta operativa
+            Optional<CartaPlatoOperativo> platoOpt = cartaSyncService.obtenerPlato(request.platoId());
+            
+            BigDecimal precioUnitario;
+            boolean stockBajo = false;
+            
+            if (platoOpt.isPresent()) {
+                CartaPlatoOperativo plato = platoOpt.get();
+                precioUnitario = plato.getPrecioVenta();
+                stockBajo = cartaSyncService.verificarStockBajo(request.platoId());
+                cartaSyncService.actualizarStockPlato(request.platoId(), request.cantidad());
+            } else {
+                precioUnitario = new BigDecimal("0.00");
+            }
+
+            // Crear item directamente en estado EN_COCINA
+            ItemComanda item = new ItemComanda();
+            item.setComandaId(comandaId);
+            item.setPlatoId(request.platoId());
+            item.setNombrePlato(request.nombrePlato());
+            item.setCantidad(request.cantidad());
+            item.setPrecioUnitario(precioUnitario);
+            item.setTipoRonda(request.tipoRonda());
+            item.setOrdenEnRonda(request.ordenEnRonda() != null ? request.ordenEnRonda() : 1);
+            item.setNumeroRonda(request.numeroRonda() != null ? request.numeroRonda() : comanda.getRondaActual() != null ? comanda.getRondaActual().ordinal() + 1 : 1);
+            item.setEstado(ItemComanda.ItemEstado.EN_COCINA);  // Directo a cocina
+            item.setNotas(request.notas());
+            item.setHoraEnvioCocina(ahora);  // Marcar hora de envío
+
+            ItemComanda saved = itemComandaRepository.save(item);
+            itemsGuardados.add(saved);
+            
+            ItemComandaResponse response = mapToResponseWithStockWarning(saved, stockBajo);
+            responses.add(response);
+            
+            // Notificar a carta-service
+            salaEventProducer.publicarItemEnviadoACocina(comandaId, saved);
+        }
+
+        // Recalcular total de la comanda
+        recalcularTotalComanda(comandaId);
+        
+        // Si la comanda está en estado ABIERTA, cambiarla a EN_PREPARACION
+        if (comanda.getEstado() == ComandaEstado.ABIERTA) {
+            comanda.setEstado(ComandaEstado.EN_PREPARACION);
+            comandaRepository.save(comanda);
+        }
+
+        return responses;
+    }
+
 
 
     private ItemComandaResponse mapToResponse(ItemComanda item, boolean advertenciaStock) {
@@ -240,6 +353,7 @@ public class ItemComandaService {
                 item.getSubtotal(),
                 item.getTipoRonda(),
                 item.getOrdenEnRonda(),
+                item.getNumeroRonda(),
                 item.getEstado(),
                 item.getNotas(),
                 item.getHoraPedido(),

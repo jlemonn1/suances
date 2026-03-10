@@ -118,7 +118,7 @@ public class MesaOperativaController {
     }
 
     @PostMapping("/sincronizar-todo")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     public ResponseEntity<String> sincronizarTodo() {
         sincronizacionCatalogoService.sincronizarTodo();
         return ResponseEntity.ok("Sincronización completada");

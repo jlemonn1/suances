@@ -22,9 +22,9 @@ interface PersonalDetailScreenProps {
 }
 
 const ROLES: { value: Rol; label: string }[] = [
-  { value: 'PROPIETARIO', label: 'Propietario' },
-  { value: 'GERENTE', label: 'Gerente' },
-  { value: 'CAMARERO', label: 'Camarero' },
+  { value: 'OWNER', label: 'Propietario' },
+  { value: 'MANAGER', label: 'Gerente' },
+  { value: 'WAITER', label: 'Camarero' },
 ];
 
 export const PersonalDetailScreen: React.FC<PersonalDetailScreenProps> = ({

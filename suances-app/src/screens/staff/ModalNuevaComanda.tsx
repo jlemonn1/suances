@@ -45,8 +45,15 @@ export const ModalNuevaComanda: React.FC<ModalNuevaComandaProps> = ({
 
     setError(null);
     try {
+      if (!user?.id) {
+        setError('Error: No se pudo identificar al camarero');
+        return;
+      }
+      
       await crearComanda({
         mesaId: mesa.id,
+        camareroId: user.id,
+        camareroNombre: user.nombre,
         numeroComensales,
         notas: notas.trim() || undefined,
       });
