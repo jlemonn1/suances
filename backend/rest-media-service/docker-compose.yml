@@ -1,18 +1,15 @@
 services:
-  carta-service:
+  media-service:
     build:
       context: .
-      # Assuming a standard Dockerfile exists or will be created here
       dockerfile: Dockerfile
-    container_name: suances-carta-service
+    container_name: suances-media-service
     ports:
-      - "8081:8081"
+      - "8080:8080"
     env_file:
       - ../../.env
     environment:
       - SPRING_PROFILES_ACTIVE=dev
-      - DB_HOST=postgres
-      - REDIS_HOST=redis
     networks:
       - suances-network
 

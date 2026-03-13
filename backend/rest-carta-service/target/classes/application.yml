@@ -3,6 +3,9 @@ server:
   servlet:
     context-path: /api/carta
 
+  servlet:
+    context-path: /suances
+
 spring:
   application:
     name: carta-service

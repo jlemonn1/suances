@@ -1,0 +1,25 @@
+server:
+  port: 8080
+
+  servlet:
+    context-path: /suances
+
+spring:
+  application:
+    name: media-service
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+  s3:
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    bucket: ${S3_BUCKET:media}
+    account-id: ${S3_ACCOUNT_ID:}
+    cdn-domain: ${S3_CDN_DOMAIN:cdn.tudominio.com}
+
+logging:
+  level:
+    root: INFO
+    "[com.suances.media]": DEBUG
+    "[org.springframework.security]": INFO

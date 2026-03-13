@@ -46,7 +46,7 @@ public class JwtTokenProvider {
                 .claim("rol", rol.name())
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 

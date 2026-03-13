@@ -3,6 +3,9 @@ server:
   servlet:
     context-path: /api/personal
 
+  servlet:
+    context-path: /suances
+
 spring:
   application:
     name: personal-service

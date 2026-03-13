@@ -1,0 +1,145 @@
+{
+	"info": {
+		"_postman_id": "d7a8b9c0-e1f2-4a5b-9c8d-7e6f5a4b3c2d",
+		"name": "Media Service",
+		"description": "Colección para probar el microservicio de Media (rest-media-service).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Media",
+			"item": [
+				{
+					"name": "Get Upload URL",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{jwt_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/media/upload-url?extension=jpg&contentType=image/jpeg",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"media",
+								"upload-url"
+							],
+							"query": [
+								{
+									"key": "extension",
+									"value": "jpg"
+								},
+								{
+									"key": "contentType",
+									"value": "image/jpeg"
+								}
+							]
+						},
+						"description": "Solicita una URL pre-firmada para subir un archivo a Cloudflare R2."
+					},
+					"response": []
+				},
+				{
+					"name": "Upload File (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "image/jpeg",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "file",
+							"file": {
+								"src": ""
+							}
+						},
+						"url": {
+							"raw": "{{upload_url}}",
+							"host": [
+								"{{upload_url}}"
+							]
+						},
+						"description": "Sube el archivo directamente al CDN usando la URL pre-firmada obtenida en el paso anterior. NOTA: Debes pegar la 'uploadUrl' recibida en la variable 'upload_url'."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth (Mock)",
+			"item": [
+				{
+					"name": "Login (From Personal Service)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "json",
+							"json": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8085/auth/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8085",
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Endpoint del servicio de Personal para obtener el JWT necesario."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "jwt_token",
+			"value": "your_jwt_here",
+			"type": "string"
+		},
+		{
+			"key": "upload_url",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
