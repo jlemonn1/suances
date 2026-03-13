@@ -26,6 +26,15 @@ export interface PlatoOperativo {
   stockBajo: boolean;
   imagenUrl: string | null;
   ingredientes: string[];
+  ingredientesBajos?: IngredienteBajo[];
+}
+
+export interface IngredienteBajo {
+  ingredienteId: string;
+  nombre: string;
+  stockActual: number;
+  umbralAlerta: number;
+  unidadMedida: string;
 }
 
 export interface TipoCartaOperativo {

@@ -15,6 +15,8 @@ import type {
   Sala,
   EnviarCocinaRequest,
   TipoRonda,
+  TicketResponse,
+  ComandaHoyResponse,
 } from '../types/sala';
 import type { PlatoOperativo, TipoCartaOperativo } from '../types/carta';
 
@@ -74,16 +76,20 @@ export const salaService = {
     return response.data;
   },
 
-  cerrarComanda: async (
-    id: string,
-    data: { tipoPago: string }
-  ): Promise<Comanda> => {
-    const response = await salaApi.post(`/comandas/${id}/cerrar`, data);
-    return response.data;
+  cerrarComanda: async (id: string): Promise<TicketResponse> => {
+    console.log('[salaService] cerrarComanda iniciado:', { id });
+    try {
+      const response = await salaApi.post<TicketResponse>(`/comandas/${id}/cuenta/cerrar`);
+      console.log('[salaService] cerrarComanda respuesta:', response.status, response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] cerrarComanda error:', error.message, error.response?.data);
+      throw error;
+    }
   },
 
   cobrarComanda: async (id: string, data: CobrarRequest): Promise<CobroResponse> => {
-    const response = await salaApi.post<CobroResponse>(`/comandas/${id}/cobrar`, data);
+    const response = await salaApi.post<CobroResponse>(`/comandas/${id}/cuenta/cobrar`, data);
     return response.data;
   },
 
@@ -241,6 +247,11 @@ export const salaService = {
     return response.data;
   },
 
+  getPlatosStockBajoAfectados: async (): Promise<PlatoOperativo[]> => {
+    const response = await salaApi.get<PlatoOperativo[]>('/carta/platos/stock-bajo-afectados');
+    return response.data;
+  },
+
   // Nuevos métodos para gestión de rondas y envío a cocina
   obtenerComandaConRondas: async (comandaId: string): Promise<ComandaDetalleRondas> => {
     const response = await salaApi.get<ComandaDetalleRondas>(`/comandas/${comandaId}/detalle-rondas`);
@@ -271,6 +282,70 @@ export const salaService = {
       return response.data;
     } catch (error: any) {
       console.error('[salaService] POST /comandas/${comandaId}/nueva-ronda - Error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
+  // Nuevos métodos para gestión de cuenta cerrada
+  reenviarTicket: async (comandaId: string): Promise<void> => {
+    console.log('[salaService] Reenviando ticket:', { comandaId });
+    try {
+      await salaApi.post(`/comandas/${comandaId}/cuenta/ticket/reenviar`);
+      console.log('[salaService] Ticket reenviado exitosamente');
+    } catch (error: any) {
+      console.error('[salaService] Error al reenviar ticket:', error.message);
+      throw error;
+    }
+  },
+
+  modificarLineasCuenta: async (
+    comandaId: string,
+    itemIds: string[],
+    motivo: string
+  ): Promise<TicketResponse> => {
+    console.log('[salaService] Modificando líneas de cuenta:', { comandaId, itemIds, motivo });
+    try {
+      const response = await salaApi.post<TicketResponse>(
+        `/comandas/${comandaId}/cuenta/modificar`,
+        itemIds,
+        { params: { motivo } }
+      );
+      console.log('[salaService] Líneas modificadas exitosamente');
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] Error al modificar líneas:', error.message, error.response?.data);
+      throw error;
+    }
+  },
+
+  cancelarCuentaCerrada: async (
+    comandaId: string,
+    motivo: string,
+    usuarioNombre: string
+  ): Promise<TicketResponse> => {
+    console.log('[salaService] Cancelando cuenta cerrada:', { comandaId, motivo, usuarioNombre });
+    try {
+      const response = await salaApi.post<TicketResponse>(
+        `/comandas/${comandaId}/cuenta/cancelar`,
+        null,
+        { params: { motivo, usuarioNombre } }
+      );
+      console.log('[salaService] Cuenta cancelada exitosamente');
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] Error al cancelar cuenta:', error.message, error.response?.data);
+      throw error;
+    }
+  },
+
+  listarComandasHoy: async (): Promise<ComandaHoyResponse[]> => {
+    console.log('[salaService] Listando comandas del día');
+    try {
+      const response = await salaApi.get<ComandaHoyResponse[]>('/comandas/hoy');
+      console.log('[salaService] Comandas del día obtenidas:', response.data.length);
+      return response.data;
+    } catch (error: any) {
+      console.error('[salaService] Error al listar comandas:', error.message);
       throw error;
     }
   },

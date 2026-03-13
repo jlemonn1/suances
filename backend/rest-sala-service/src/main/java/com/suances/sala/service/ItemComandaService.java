@@ -8,10 +8,13 @@ import com.suances.sala.domain.model.ItemComanda;
 import com.suances.sala.domain.model.enums.ComandaEstado;
 import com.suances.sala.domain.model.enums.TipoRonda;
 import com.suances.sala.event.SalaEventProducer;
+import com.suances.sala.event.dto.RondaEnviadaCocinaEvent;
 import com.suances.sala.exception.BusinessRuleException;
 import com.suances.sala.exception.ResourceNotFoundException;
 import com.suances.sala.repository.ComandaRepository;
 import com.suances.sala.repository.ItemComandaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -27,6 +31,8 @@ import java.util.stream.Collectors;
 @Service
 public class ItemComandaService {
 
+    private static final Logger log = LoggerFactory.getLogger(ItemComandaService.class);
+    
     private final ItemComandaRepository itemComandaRepository;
     private final ComandaRepository comandaRepository;
     private final CartaSyncService cartaSyncService;
@@ -245,9 +251,36 @@ public class ItemComandaService {
             item.setEstado(ItemComanda.ItemEstado.EN_COCINA);
             item.setHoraEnvioCocina(ahora);
             itemComandaRepository.save(item);
+        });
 
-            // Notificar a carta-service
-            salaEventProducer.publicarItemEnviadoACocina(comandaId, item);
+        // Agrupar items por ronda y enviar un evento por ronda
+        Map<Integer, List<ItemComanda>> itemsPorRonda = items.stream()
+                .collect(Collectors.groupingBy(ItemComanda::getNumeroRonda));
+        
+        itemsPorRonda.forEach((numeroRonda, itemsRonda) -> {
+            String tipoRonda = itemsRonda.isEmpty() ? "" : itemsRonda.get(0).getTipoRonda().name();
+            
+            List<RondaEnviadaCocinaEvent.ItemRondaEnviada> itemsEvent = itemsRonda.stream()
+                    .map(item -> new RondaEnviadaCocinaEvent.ItemRondaEnviada(
+                            item.getId(),
+                            item.getPlatoId(),
+                            item.getNombrePlato(),
+                            item.getCantidad()
+                    ))
+                    .collect(Collectors.toList());
+            
+            RondaEnviadaCocinaEvent evento = new RondaEnviadaCocinaEvent(
+                    comandaId,
+                    comanda.getMesaId(),
+                    numeroRonda,
+                    tipoRonda,
+                    comanda.getCamareroId(),
+                    itemsEvent
+            );
+            
+            salaEventProducer.publicarRondaEnviadaCocina(evento);
+            log.info("Evento ronda enviada a cocina publicado para comanda={}, ronda={}, items={}", 
+                    comandaId, numeroRonda, itemsEvent.size());
         });
 
         // Si la comanda está en estado ABIERTA, cambiarla a EN_PREPARACION
@@ -323,10 +356,38 @@ public class ItemComandaService {
             
             ItemComandaResponse response = mapToResponseWithStockWarning(saved, stockBajo);
             responses.add(response);
-            
-            // Notificar a carta-service
-            salaEventProducer.publicarItemEnviadoACocina(comandaId, saved);
         }
+
+        // Agrupar items por ronda y enviar un evento por ronda
+        Map<Integer, List<ItemComanda>> itemsPorRonda = itemsGuardados.stream()
+                .collect(Collectors.groupingBy(ItemComanda::getNumeroRonda));
+        
+        itemsPorRonda.forEach((numeroRonda, itemsRonda) -> {
+            String tipoRonda = itemsRonda.isEmpty() ? "" : itemsRonda.get(0).getTipoRonda().name();
+            
+            List<RondaEnviadaCocinaEvent.ItemRondaEnviada> itemsEvent = itemsRonda.stream()
+                    .map(item -> new RondaEnviadaCocinaEvent.ItemRondaEnviada(
+                            item.getId(),
+                            item.getPlatoId(),
+                            item.getNombrePlato(),
+                            item.getCantidad()
+                    ))
+                    .collect(Collectors.toList());
+            
+            RondaEnviadaCocinaEvent evento = new RondaEnviadaCocinaEvent(
+                    comandaId,
+                    comanda.getMesaId(),
+                    numeroRonda,
+                    tipoRonda,
+                    comanda.getCamareroId(),
+                    itemsEvent
+            );
+            
+            salaEventProducer.publicarRondaEnviadaCocina(evento);
+            LoggerFactory.getLogger(ItemComandaService.class)
+                    .info("Evento ronda enviada a cocina publicado para comanda={}, ronda={}, items={}", 
+                            comandaId, numeroRonda, itemsEvent.size());
+        });
 
         // Recalcular total de la comanda
         recalcularTotalComanda(comandaId);

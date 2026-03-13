@@ -13,6 +13,7 @@ public class ReservaCreatedEvent {
     private String nombreCliente;
     private String telefono;
     private Integer comensales;
+    private String origen;
 
     public UUID getEventId() { return eventId; }
     public void setEventId(UUID eventId) { this.eventId = eventId; }
@@ -34,4 +35,6 @@ public class ReservaCreatedEvent {
     public void setTelefono(String telefono) { this.telefono = telefono; }
     public Integer getComensales() { return comensales; }
     public void setComensales(Integer comensales) { this.comensales = comensales; }
+    public String getOrigen() { return origen; }
+    public void setOrigen(String origen) { this.origen = origen; }
 }

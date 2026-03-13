@@ -2,8 +2,11 @@ package com.suances.carta.service;
 
 import com.suances.carta.dto.event.EscandalloChangedEvent;
 import com.suances.carta.dto.event.IngredienteChangedEvent;
+import com.suances.carta.dto.event.PedidoProcesadoEvent;
 import com.suances.carta.dto.event.PlatoChangedEvent;
 import com.suances.carta.dto.event.PlatoDisponibilidadEvent;
+import com.suances.carta.dto.event.PlatosAfectadosStockEvent;
+import com.suances.carta.dto.event.PlatosStockMejoradoEvent;
 import com.suances.carta.dto.event.StockBajoEvent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -180,6 +183,64 @@ public class EventProducer {
             log.info("Evento de escandallo publicado: {} - plato: {}", tipo, event.getNombrePlato());
         } catch (JsonProcessingException e) {
             log.error("Error al serializar evento de escandallo", e);
+        }
+    }
+
+    public void publicarPedidoProcesado(PedidoProcesadoEvent event) {
+        try {
+            String json = objectMapper.writeValueAsString(event);
+            
+            Map<String, String> evento = new HashMap<>();
+            evento.put("eventId", event.getEventId().toString());
+            evento.put("type", "carta.pedido_procesado");
+            evento.put("timestamp", java.time.OffsetDateTime.now().toString());
+            evento.put("source", "carta-service");
+            evento.put("data", json);
+
+            redisTemplate.opsForStream().add(STREAM_NAME, evento);
+            log.info("Evento pedido procesado publicado: comanda={}, ronda={}, items={}", 
+                    event.getComandaId(), event.getNumeroRonda(), 
+                    event.getItems() != null ? event.getItems().size() : 0);
+        } catch (JsonProcessingException e) {
+            log.error("Error al serializar evento pedido procesado", e);
+        }
+    }
+
+    public void publicarPlatosAfectadosStock(PlatosAfectadosStockEvent event) {
+        try {
+            String json = objectMapper.writeValueAsString(event);
+            
+            Map<String, String> evento = new HashMap<>();
+            evento.put("eventId", event.getEventId().toString());
+            evento.put("type", "carta.platos_afectados_stock");
+            evento.put("timestamp", java.time.OffsetDateTime.now().toString());
+            evento.put("source", "carta-service");
+            evento.put("data", json);
+
+            redisTemplate.opsForStream().add(STREAM_NAME, evento);
+            log.info("Evento platos afectados por stock publicado: {} platos", 
+                    event.getPlatos() != null ? event.getPlatos().size() : 0);
+        } catch (JsonProcessingException e) {
+            log.error("Error al serializar evento platos afectados por stock", e);
+        }
+    }
+
+    public void publicarPlatosStockMejorado(PlatosStockMejoradoEvent event) {
+        try {
+            String json = objectMapper.writeValueAsString(event);
+            
+            Map<String, String> evento = new HashMap<>();
+            evento.put("eventId", event.getEventId().toString());
+            evento.put("type", "carta.platos_stock_mejorado");
+            evento.put("timestamp", java.time.OffsetDateTime.now().toString());
+            evento.put("source", "carta-service");
+            evento.put("data", json);
+
+            redisTemplate.opsForStream().add(STREAM_NAME, evento);
+            log.info("Evento platos con stock mejorado publicado: {} platos", 
+                    event.getPlatos() != null ? event.getPlatos().size() : 0);
+        } catch (JsonProcessingException e) {
+            log.error("Error al serializar evento platos con stock mejorado", e);
         }
     }
 }

@@ -1,9 +1,11 @@
 package com.suances.sala.event;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.suances.sala.domain.model.Comanda;
+import com.suances.sala.event.dto.RondaEnviadaCocinaEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -151,6 +153,27 @@ public class SalaEventProducer {
             log.info("Evento comanda cobrada publicado: {}", comanda.getCodigo());
         } catch (Exception e) {
             log.error("Error al publicar evento comanda cobrada", e);
+        }
+    }
+
+    public void publicarRondaEnviadaCocina(RondaEnviadaCocinaEvent evento) {
+        try {
+            String json = objectMapper.writeValueAsString(evento);
+            
+            Map<String, String> eventoMap = new HashMap<>();
+            eventoMap.put("eventId", evento.getEventId().toString());
+            eventoMap.put("type", evento.getType());
+            eventoMap.put("timestamp", evento.getTimestamp().toString());
+            eventoMap.put("source", "sala-service");
+            eventoMap.put("data", json);
+
+            RecordId recordId = redisTemplate.opsForStream().add(streamOutput, eventoMap);
+            log.info("Evento ronda enviada a cocina publicado: comanda={}, ronda={}, items={}, streamId={}", 
+                    evento.getComandaId(), evento.getNumeroRonda(), evento.getItems().size(), recordId);
+        } catch (JsonProcessingException e) {
+            log.error("Error al serializar evento RondaEnviadaCocinaEvent", e);
+        } catch (Exception e) {
+            log.error("Error al publicar evento ronda enviada a cocina", e);
         }
     }
 

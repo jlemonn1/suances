@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { PlatoResponse, PlatoRequest } from '../types/plato';
-import { IngredienteResponse } from '../types/ingrediente';
+import type { IngredienteBajo } from '../types/carta';
 import { cartaService } from '../services/cartaService';
 import { useIngredienteStore } from './ingredienteStore';
 
@@ -26,6 +26,7 @@ interface PlatoState {
     disponible?: boolean;
     stockDisponible?: number;
     stockBajo?: boolean;
+    ingredientesBajos?: IngredienteBajo[];
   }) => void;
 }
 
@@ -115,6 +116,7 @@ export const usePlatoStore = create<PlatoState>((set, get) => ({
             ...(data.disponible !== undefined && { disponible: data.disponible }),
             ...(data.stockDisponible !== undefined && { stockDisponible: data.stockDisponible }),
             ...(data.stockBajo !== undefined && { stockBajo: data.stockBajo }),
+            ...(data.ingredientesBajos !== undefined && { ingredientesBajos: data.ingredientesBajos }),
           };
           console.log('[platoStore] Plato actualizado:', updatedPlato.nombre);
           return updatedPlato;

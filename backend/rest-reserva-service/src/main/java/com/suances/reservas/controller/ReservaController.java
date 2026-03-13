@@ -1,6 +1,7 @@
 package com.suances.reservas.controller;
 
 import com.suances.reservas.domain.model.enums.ReservaEstado;
+import com.suances.reservas.dto.ComandaReservaRequest;
 import com.suances.reservas.dto.MesasOcupadasResponse;
 import com.suances.reservas.dto.ReservaRequest;
 import com.suances.reservas.dto.ReservaResponse;
@@ -70,5 +71,12 @@ public class ReservaController {
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
     public ReservaResponse actualizar(@PathVariable UUID id, @Valid @RequestBody UpdateReservaRequest request) {
         return reservaService.actualizarReserva(id, request);
+    }
+
+    @PostMapping("/comanda")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','SERVICE')")
+    public ReservaResponse crearDesdeComanda(@Valid @RequestBody ComandaReservaRequest request) {
+        return reservaService.crearReservaDesdeComanda(request);
     }
 }

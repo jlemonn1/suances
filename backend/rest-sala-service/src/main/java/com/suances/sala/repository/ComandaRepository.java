@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,4 +26,6 @@ public interface ComandaRepository extends JpaRepository<Comanda, UUID> {
     Page<Comanda> findByCamareroId(UUID camareroId, Pageable pageable);
 
     List<Comanda> findByMesaId(UUID mesaId);
+
+    List<Comanda> findByFechaAperturaBetweenOrderByUpdatedAtDesc(OffsetDateTime inicio, OffsetDateTime fin);
 }

@@ -15,5 +15,6 @@ public record PlatoOperativoResponse(
         Boolean disponible,
         Boolean stockBajo,
         String imagenUrl,
-        List<String> ingredientes
+        List<String> ingredientes,
+        List<IngredienteStockBajoResponse> ingredientesBajos
 ) {}

@@ -28,11 +28,25 @@ const formatFechaDisplay = (fecha: string): string => {
   return `${DAYS[date.getDay()]} ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 };
 
+const getTodayString = (): string => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const isToday = (fecha: string): boolean => {
+  return fecha === getTodayString();
+};
+
 export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [viewDate, setViewDate] = useState(parseFecha(fecha));
 
   const currentDate = parseFecha(fecha);
+  const todayString = getTodayString();
+  const isCurrentDay = isToday(fecha);
 
   const goToPrevDay = () => {
     const newDate = new Date(currentDate);
@@ -74,7 +88,7 @@ export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
            day === currentDate.getDate();
   };
 
-  const isToday = (day: number) => {
+  const isCalendarToday = (day: number) => {
     const today = new Date();
     return viewDate.getFullYear() === today.getFullYear() &&
            viewDate.getMonth() === today.getMonth() &&
@@ -86,6 +100,10 @@ export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
     setViewDate(newDate);
   };
 
+  const goToToday = () => {
+    onChangeFecha(todayString);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.row}>
@@ -94,20 +112,34 @@ export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.dateButton} 
+          style={[styles.dateButton, !isCurrentDay && styles.dateButtonNotToday]} 
           onPress={() => {
             setViewDate(currentDate);
             setModalVisible(true);
           }}
         >
-          <Ionicons name="calendar" size={20} color={colors.accent} />
-          <Text style={styles.dateText}>{formatFechaDisplay(fecha)}</Text>
+          <Ionicons name="calendar" size={20} color={isCurrentDay ? colors.accent : colors.primary} />
+          <Text style={[styles.dateText, !isCurrentDay && styles.dateTextNotToday]}>
+            {formatFechaDisplay(fecha)}
+          </Text>
+          {!isCurrentDay && (
+            <View style={styles.notTodayBadge}>
+              <Text style={styles.notTodayBadgeText}>!</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={goToNextDay} style={styles.navButton}>
           <Text style={styles.navText}>›</Text>
         </TouchableOpacity>
       </View>
+      
+      {!isCurrentDay && (
+        <TouchableOpacity style={styles.todayButton} onPress={goToToday} activeOpacity={0.8}>
+          <Ionicons name="today" size={16} color={colors.surface} />
+          <Text style={styles.todayButtonText}>Hoy</Text>
+        </TouchableOpacity>
+      )}
 
       <Modal
         visible={modalVisible}
@@ -142,7 +174,7 @@ export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
                   style={[
                     styles.dayCell,
                     day && isSelectedDay(day) && styles.daySelected,
-                    day && isToday(day) && styles.dayToday,
+                    day && isCalendarToday(day) && styles.dayToday,
                   ]}
                   onPress={() => day && selectDay(day)}
                   disabled={!day}
@@ -150,7 +182,7 @@ export const DateSelector: React.FC<Props> = ({ fecha, onChangeFecha }) => {
                   <Text style={[
                     styles.dayText,
                     day && isSelectedDay(day) && styles.dayTextSelected,
-                    day && isToday(day) && styles.dayTextToday,
+                    day && isCalendarToday(day) && styles.dayTextToday,
                   ]}>
                     {day || ''}
                   </Text>
@@ -258,6 +290,44 @@ const styles = StyleSheet.create({
   },
   dayTextToday: {
     color: colors.primary,
+    fontWeight: '600',
+  },
+  dateButtonNotToday: {
+    backgroundColor: colors.surface,
+  },
+  dateTextNotToday: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  notTodayBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.error || '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.xs,
+  },
+  notTodayBadgeText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  todayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    marginTop: spacing.xs,
+    alignSelf: 'center',
+    gap: spacing.xs,
+  },
+  todayButtonText: {
+    color: colors.surface,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

@@ -145,18 +145,36 @@ export const useCartaSSE = (options: UseCartaSSEOptions = {}) => {
         es.addEventListener('carta.plato_stock_changed', (event: any) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('[CARTA-SSE] Stock plato cambiado:', data.platoId);
+            console.log('[CARTA-SSE] === EVENTO stock_changed RECIBIDO ===');
+            console.log('[CARTA-SSE] Plato ID:', data.platoId);
+            console.log('[CARTA-SSE] Plato nombre:', data.nombre);
+            console.log('[CARTA-SSE] Stock bajo:', data.stockBajo);
+            console.log('[CARTA-SSE] Ingredientes bajos:', data.ingredientesBajos);
+            console.log('[CARTA-SSE] === FIN EVENTO ===');
             
             updatePlatoFromSSE({
               platoId: data.platoId,
               nombre: data.nombre,
               stockDisponible: data.stockDisponible,
               stockBajo: data.stockBajo,
+              ingredientesBajos: data.ingredientesBajos,
             });
             
             onPlatoChangedRef.current?.();
           } catch (error) {
             console.error('[CARTA-SSE] Error parseando plato_stock_changed:', error);
+          }
+        });
+
+        // Evento: Stock bajo limpiado (todos los platos recuperados)
+        es.addEventListener('carta.plato_stock_cleared', (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[CARTA-SSE] Stock bajo limpiado:', data);
+            
+            onPlatoChangedRef.current?.();
+          } catch (error) {
+            console.error('[CARTA-SSE] Error parseando plato_stock_cleared:', error);
           }
         });
 
@@ -214,6 +232,31 @@ export const useCartaSSE = (options: UseCartaSSEOptions = {}) => {
             });
           } catch (error) {
             console.error('[CARTA-SSE] Error parseando stock_bajo:', error);
+          }
+        });
+
+        // Evento: Pedido procesado (ronda enviada a cocina y stock actualizado)
+        es.addEventListener('carta.pedido_procesado', (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[CARTA-SSE] Pedido procesado recibido:', data.comandaId, 'items:', data.items?.length);
+            
+            // Actualizar stock de ingredientes discretamente
+            if (data.items) {
+              data.items.forEach((item: any) => {
+                if (item.ingredientesConsumidos) {
+                  item.ingredientesConsumidos.forEach((ing: any) => {
+                    updateIngredienteFromSSE({
+                      ingredienteId: ing.ingredienteId,
+                      nombre: ing.nombre,
+                      stockActual: ing.stockActual,
+                    });
+                  });
+                }
+              });
+            }
+          } catch (error) {
+            console.error('[CARTA-SSE] Error parseando pedido_procesado:', error);
           }
         });
 

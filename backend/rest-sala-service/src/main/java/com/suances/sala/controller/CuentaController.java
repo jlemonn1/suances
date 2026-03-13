@@ -1,19 +1,26 @@
 package com.suances.sala.controller;
 
+import com.suances.sala.domain.dto.response.TicketCobroResponse;
 import com.suances.sala.domain.model.Comanda;
+import com.suances.sala.dto.request.CobrarCuentaRequest;
 import com.suances.sala.service.CuentaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/comandas/{comandaId}/cuenta")
 public class CuentaController {
+
+    private static final Logger log = LoggerFactory.getLogger(CuentaController.class);
 
     private final CuentaService cuentaService;
 
@@ -30,18 +37,17 @@ public class CuentaController {
 
     @PostMapping("/cerrar")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
-    public ResponseEntity<Comanda> cerrarCuenta(@PathVariable UUID comandaId) {
-        Comanda comanda = cuentaService.cerrarCuenta(comandaId);
-        return ResponseEntity.ok(comanda);
+    public ResponseEntity<TicketCobroResponse> cerrarCuenta(@PathVariable UUID comandaId) {
+        TicketCobroResponse ticket = cuentaService.cerrarCuenta(comandaId);
+        return ResponseEntity.ok(ticket);
     }
 
     @PostMapping("/cobrar")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     public ResponseEntity<Comanda> cobrarCuenta(
             @PathVariable UUID comandaId,
-            @RequestParam String tipoPago,
-            @RequestParam BigDecimal montoRecibido) {
-        Comanda comanda = cuentaService.cobrarComanda(comandaId, tipoPago, montoRecibido);
+            @RequestBody CobrarCuentaRequest request) {
+        Comanda comanda = cuentaService.cobrarComanda(comandaId, request.getTipoPago(), request.getMontoRecibido());
         return ResponseEntity.ok(comanda);
     }
 
@@ -64,5 +70,33 @@ public class CuentaController {
         Map<String, BigDecimal> response = new HashMap<>();
         response.put("cambio", cambio);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/cancelar")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ResponseEntity<TicketCobroResponse> cancelarCuentaCerrada(
+            @PathVariable UUID comandaId,
+            @RequestParam String motivo,
+            @RequestParam String usuarioNombre) {
+        TicketCobroResponse ticket = cuentaService.cancelarCuentaCerrada(comandaId, motivo, usuarioNombre);
+        return ResponseEntity.ok(ticket);
+    }
+
+    @PostMapping("/modificar")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ResponseEntity<TicketCobroResponse> modificarLineasCuentaCerrada(
+            @PathVariable UUID comandaId,
+            @RequestBody List<UUID> itemIds,
+            @RequestParam String motivo) {
+        TicketCobroResponse ticket = cuentaService.modificarLineasCuentaCerrada(comandaId, itemIds, motivo);
+        return ResponseEntity.ok(ticket);
+    }
+
+    @PostMapping("/ticket/reenviar")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
+    public ResponseEntity<Void> reenviarTicket(@PathVariable UUID comandaId) {
+        // TODO: Implementar integración con servicio de impresión
+        log.info("[CuentaController] Solicitud de reenvío de ticket para comanda: {}", comandaId);
+        return ResponseEntity.ok().build();
     }
 }

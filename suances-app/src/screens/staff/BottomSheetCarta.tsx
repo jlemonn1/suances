@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   },
   stockBajo: {
     ...typography.caption,
-    color: colors.error,
+    color: colors.prima,
     marginTop: 2,
   },
   selectedContainer: {
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   },
   stockBajoWarning: {
     ...typography.bodySmall,
-    color: colors.error,
+    color: colors.white,
     marginTop: spacing.xs,
   },
   label: {

@@ -12,13 +12,16 @@ interface MesaCardProps {
 const getEstadoColor = (estado: MesaEstadoOperativo, tieneComanda: boolean): string => {
   switch (estado) {
     case 'LIBRE':
-      return colors.success;
+    case 'COBRADA': // Mesa liberada después de cobrar
+      return colors.success; // Verde
     case 'OCUPADA':
-      return colors.warning;
+      return colors.warning; // Amarillo
+    case 'CUENTA': // Cuenta cerrada pendiente de cobro
+      return colors.error; // Rojo
     case 'RESERVADA':
-      return tieneComanda ? colors.warning : colors.primary;
+      return tieneComanda ? colors.warning : colors.primary; // Azul
     case 'BLOQUEADA':
-      return colors.error;
+      return colors.textSecondary;
     case 'MANTENIMIENTO':
       return colors.disabled;
     default:
@@ -29,9 +32,12 @@ const getEstadoColor = (estado: MesaEstadoOperativo, tieneComanda: boolean): str
 const getEstadoIcon = (estado: MesaEstadoOperativo): keyof typeof Ionicons.glyphMap => {
   switch (estado) {
     case 'LIBRE':
+    case 'COBRADA':
       return 'checkmark-circle';
     case 'OCUPADA':
       return 'time';
+    case 'CUENTA':
+      return 'receipt';
     case 'RESERVADA':
       return 'calendar';
     case 'BLOQUEADA':
@@ -62,7 +68,7 @@ export const MesaCard: React.FC<MesaCardProps> = ({ mesa, onPress }) => {
 
       <Text style={styles.sala}>{mesa.nombreSala}</Text>
 
-      {mesa.estadoOperativo === 'OCUPADA' && (
+      {(mesa.estadoOperativo === 'OCUPADA' || mesa.estadoOperativo === 'CUENTA') && (
         <View style={styles.infoContainer}>
           {mesa.codigoComanda && (
             <Text style={styles.codigoComanda}>{mesa.codigoComanda}</Text>
@@ -83,6 +89,12 @@ export const MesaCard: React.FC<MesaCardProps> = ({ mesa, onPress }) => {
             <Text style={styles.tiempo}>
               <Ionicons name="time-outline" size={12} color={colors.textSecondary} />{' '}
               {mesa.tiempoOcupadaMinutos}m
+            </Text>
+          )}
+          {mesa.estadoOperativo === 'CUENTA' && (
+            <Text style={styles.cuentaPendiente}>
+              <Ionicons name="warning" size={12} color={colors.error} />{' '}
+              Cuenta pendiente
             </Text>
           )}
         </View>
@@ -171,6 +183,12 @@ const styles = StyleSheet.create({
   tiempo: {
     ...typography.caption,
     color: colors.warning,
+    marginTop: 2,
+  },
+  cuentaPendiente: {
+    ...typography.caption,
+    color: colors.error,
+    fontWeight: '600',
     marginTop: 2,
   },
   reserva: {

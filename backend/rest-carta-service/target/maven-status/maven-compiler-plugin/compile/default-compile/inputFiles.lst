@@ -21,8 +21,11 @@ C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\s
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\CartaEventResponse.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\EscandalloChangedEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\IngredienteChangedEvent.java
+C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\PedidoProcesadoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\PlatoChangedEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\PlatoDisponibilidadEvent.java
+C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\PlatosAfectadosStockEvent.java
+C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\PlatosStockMejoradoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\SalaPedidoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\StockBajoEvent.java
 C:\Users\Jlemonn1\Desktop\Suances\backend\rest-carta-service\src\main\java\com\suances\carta\dto\event\TipoCartaPlatosChangedEvent.java

@@ -1,10 +1,14 @@
 package com.suances.personnel.controller;
 
 import com.suances.personnel.dto.request.ChangeRoleRequest;
+import com.suances.personnel.dto.request.CreateAnotacionRequest;
 import com.suances.personnel.dto.request.CreatePersonnelRequest;
+import com.suances.personnel.dto.request.ToggleModoEspiaRequest;
 import com.suances.personnel.dto.request.UpdatePersonnelRequest;
+import com.suances.personnel.dto.response.AnotacionPersonalResponse;
 import com.suances.personnel.dto.response.PersonnelResponse;
 import com.suances.personnel.dto.response.RoleChangeResponse;
+import com.suances.personnel.service.AnotacionPersonalService;
 import com.suances.personnel.service.PersonnelService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -20,9 +24,12 @@ import java.util.UUID;
 public class PersonnelController {
 
     private final PersonnelService personnelService;
+    private final AnotacionPersonalService anotacionService;
 
-    public PersonnelController(PersonnelService personnelService) {
+    public PersonnelController(PersonnelService personnelService,
+                               AnotacionPersonalService anotacionService) {
         this.personnelService = personnelService;
+        this.anotacionService = anotacionService;
     }
 
     @PostMapping
@@ -64,5 +71,33 @@ public class PersonnelController {
     public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
         personnelService.desactivar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/modo-espia")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<PersonnelResponse> toggleModoEspia(
+            @PathVariable UUID id,
+            @Valid @RequestBody ToggleModoEspiaRequest request) {
+        return ResponseEntity.ok(personnelService.toggleModoEspia(id, request.getActivo()));
+    }
+
+    @PostMapping("/anotaciones")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'WAITER')")
+    public ResponseEntity<AnotacionPersonalResponse> crearAnotacion(
+            @Valid @RequestBody CreateAnotacionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(anotacionService.crear(request));
+    }
+
+    @GetMapping("/{id}/anotaciones")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<List<AnotacionPersonalResponse>> listarAnotacionesPorUsuario(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(anotacionService.listarPorUsuario(id));
+    }
+
+    @GetMapping("/anotaciones")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<List<AnotacionPersonalResponse>> listarTodasAnotaciones() {
+        return ResponseEntity.ok(anotacionService.listarTodas());
     }
 }

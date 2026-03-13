@@ -8,9 +8,12 @@ import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
 import { SalaScreen } from '../screens/staff/SalaScreen';
 import { ComandaDetailScreen } from '../screens/staff/ComandaDetailScreen';
+import { CobroScreen } from '../screens/staff/CobroScreen';
+import { TicketScreen } from '../screens/staff/TicketScreen';
 
 import { colors, spacing, typography } from '../theme';
 import { useSalaStore } from '../store/salaStore';
+import { WaiterSwitcherGallery } from '../components/staff/WaiterSwitcherGallery';
 
 const Tab = createBottomTabNavigator();
 const SalaStack = createNativeStackNavigator();
@@ -25,6 +28,8 @@ const SalaStackNavigator = () => {
     >
       <SalaStack.Screen name="SalaMain" component={SalaScreen} />
       <SalaStack.Screen name="ComandaDetail" component={ComandaDetailScreen} />
+      <SalaStack.Screen name="Ticket" component={TicketScreen} />
+      <SalaStack.Screen name="Cobro" component={CobroScreen} />
     </SalaStack.Navigator>
   );
 };
@@ -34,14 +39,19 @@ const HeaderTitle: React.FC<{ title: string }> = ({ title }) => {
   const { sseConnected } = useSalaStore();
 
   return (
-    <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>{title}</Text>
-      {!sseConnected && (
-        <View style={styles.offlineIndicator}>
-          <View style={styles.ledRed} />
-          <Text style={styles.offlineText}>canal en vivo caído</Text>
+    <View style={styles.headerWrapper}>
+      <View style={styles.headerTopRow}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>{title}</Text>
+          {!sseConnected && (
+            <View style={styles.offlineIndicator}>
+              <View style={styles.ledRed} />
+              <Text style={styles.offlineText}>canal en vivo caído</Text>
+            </View>
+          )}
         </View>
-      )}
+        <WaiterSwitcherGallery style={styles.galleryPosition} />
+      </View>
     </View>
   );
 };
@@ -99,10 +109,21 @@ export const StaffNavigator = () => {
 };
 
 const styles = StyleSheet.create({
+  headerWrapper: {
+    alignItems: 'stretch',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+  },
+  galleryPosition: {
+    flexShrink: 1,
+    marginLeft: spacing.md,
   },
   headerTitle: {
     color: colors.surface,

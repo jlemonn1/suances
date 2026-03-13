@@ -5,5 +5,7 @@ export { Loading } from './Loading';
 export { EmptyState } from './EmptyState';
 export { UnitConverter } from './UnitConverter';
 export { ConverterButton } from './ConverterButton';
+export { CustomAlert } from './CustomAlert';
+export { CustomPrompt } from './CustomPrompt';
 export { PlatoCard } from '../carta/PlatoCard';
 export { IngredienteItem } from '../carta/IngredienteItem';

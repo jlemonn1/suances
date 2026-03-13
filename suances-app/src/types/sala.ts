@@ -2,9 +2,11 @@ export type ComandaEstado = 'ABIERTA' | 'EN_PREPARACION' | 'SERVIDA' | 'CUENTA' 
 
 export type PedidoEstado = 'PENDIENTE' | 'EN_PREPARACION' | 'LISTO' | 'SERVIDO' | 'CANCELADO';
 
-export type MesaEstadoOperativo = 'LIBRE' | 'OCUPADA' | 'RESERVADA' | 'BLOQUEADA' | 'MANTENIMIENTO';
+export type MesaEstadoOperativo = 'LIBRE' | 'OCUPADA' | 'CUENTA' | 'COBRADA' | 'RESERVADA' | 'BLOQUEADA' | 'MANTENIMIENTO';
 
-export type TipoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA';
+export type TipoPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'MESA';
+
+export type TipoTicket = 'COBRO' | 'CORRECCION' | 'CANCELACION';
 
 export interface Comanda {
   id: string;
@@ -180,6 +182,57 @@ export interface CobroResponse {
   propina: number;
   fechaCobro: string;
   duracionTotalMinutos: number;
+}
+
+// Ticket de cobro/corrección/cancelación
+export interface ItemTicket {
+  nombrePlato: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+  notas?: string;
+}
+
+export interface RondaTicket {
+  tipoRonda: string;
+  items: ItemTicket[];
+  subtotalRonda: number;
+}
+
+export interface TicketResponse {
+  comandaId: string;
+  mesaNumero: number;
+  codigo: string;
+  camareroNombre: string;
+  comensales: number;
+  fechaApertura: string;
+  rondas: RondaTicket[];
+  subtotal: number;
+  descuento: number;
+  total: number;
+  tipoTicket: TipoTicket;
+  motivo?: string;
+  usuarioAccion?: string;
+  fechaAccion?: string;
+  totalAnterior?: number;
+  itemsEliminados?: ItemTicket[];
+}
+
+// Comandas del día (para OWNER/MANAGER)
+export interface ComandaHoyResponse {
+  id: string;
+  codigo: string;
+  mesaNumero: number;
+  nombreSala?: string;
+  camareroNombre: string;
+  estado: ComandaEstado;
+  numeroComensales: number;
+  total: number;
+  descuentoPorcentaje: number;
+  fechaApertura: string;
+  ultimaActualizacion: string;
+  fechaCierre?: string;
+  notas?: string;
 }
 
 export interface CrearComandaRequest {

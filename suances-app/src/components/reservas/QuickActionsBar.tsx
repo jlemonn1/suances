@@ -31,6 +31,14 @@ const formatFechaDisplay = (fecha: string): string => {
   return `${DAYS[date.getDay()]} ${day} ${MONTHS[date.getMonth()]}`;
 };
 
+const getTodayString = (): string => {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
   onNuevaReserva,
   onReservasOnline,
@@ -52,6 +60,8 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
   const searchInputRef = useRef<TextInput>(null);
   const searchHeightAnim = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
+  
+  const isToday = fecha === getTodayString();
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -215,6 +225,11 @@ export const QuickActionsBar: React.FC<QuickActionsBarProps> = ({
         <View style={styles.collapsedDateRow}>
           <Ionicons name="calendar" size={18} color={colors.surface} />
           <Text style={styles.collapsedDateText}>{formatFechaDisplay(fecha)}</Text>
+          {!isToday && (
+            <View style={styles.notTodayBadgeCollapsed}>
+              <Text style={styles.notTodayBadgeTextCollapsed}>!</Text>
+            </View>
+          )}
         </View>
         <TouchableOpacity style={styles.collapsedButton} onPress={onNuevaReserva} activeOpacity={0.8}>
           <Ionicons name="add-circle" size={26} color={colors.surface} />
@@ -299,6 +314,20 @@ const styles = StyleSheet.create({
   },
   searchCollapsedButton: {
     marginLeft: 'auto',
+  },
+  notTodayBadgeCollapsed: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.error || '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.xs,
+  },
+  notTodayBadgeTextCollapsed: {
+    color: colors.surface,
+    fontSize: 10,
+    fontWeight: '700',
   },
   collapsedSearchOverlay: {
     position: 'absolute',

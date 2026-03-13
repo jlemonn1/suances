@@ -38,6 +38,9 @@ public class CartaPlatoOperativo {
     @Column(name = "contador_pedidos_local")
     private Integer contadorPedidosLocal = 0;
 
+    @Column(name = "stock_bajo")
+    private Boolean stockBajo = false;
+
     @Column(name = "imagen_url", length = 500)
     private String imagenUrl;
 
@@ -133,6 +136,14 @@ public class CartaPlatoOperativo {
 
     public void setContadorPedidosLocal(Integer contadorPedidosLocal) {
         this.contadorPedidosLocal = contadorPedidosLocal;
+    }
+
+    public Boolean getStockBajo() {
+        return stockBajo;
+    }
+
+    public void setStockBajo(Boolean stockBajo) {
+        this.stockBajo = stockBajo;
     }
 
     public String getImagenUrl() {

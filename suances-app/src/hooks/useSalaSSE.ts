@@ -98,7 +98,18 @@ export const useSalaSSE = (options: UseSalaSSEOptions = {}) => {
         es.addEventListener('mesa.estado_cambiado', (event: any) => {
           try {
             const data = JSON.parse(event.data);
-            console.log('[SALA-SSE] Estado de mesa cambiado:', data.mesaId);
+            console.log('[SALA-SSE] Estado de mesa cambiado:', data);
+            
+            // Actualizar estado local inmediatamente
+            updateMesaFromSSE({
+              mesaId: data.mesaId,
+              estado: data.estado,
+              comandaId: data.comandaId,
+              codigo: data.codigo,
+              camareroId: data.camareroId,
+            });
+            
+            // Refetch completo para asegurar sincronización
             fetchMesas({ salaId: salaIdRef.current, franjaId: franjaIdRef.current });
           } catch (error) {
             console.error('[SALA-SSE] Error parseando mesa.estado_cambiado:', error);

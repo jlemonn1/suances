@@ -1,0 +1,688 @@
+# Suances - Sistema de Gestión Integral para Restaurantes
+
+## 📋 Descripción del Proyecto
+
+Suances es un **SaaS (Software as a Service) de gestión integral para restaurantes** diseñado con arquitectura de microservicios. El sistema permite controlar todas las operaciones de un restaurante de manera integrada, desde la gestión de mesas y comandas hasta el control de stock y rentabilidad.
+
+### Objetivos del Sistema
+
+- **Control de stock real**: Seguimiento automático del inventario basado en consumo
+- **Costes reales**: Cálculo dinámico del coste de cada plato basado en ingredientes
+- **Medición de rentabilidad**: Análisis de márgenes por plato, turno y período
+- **Coordinación sala-caja**: Flujo seamless entre atención al cliente y facturación
+- **Automatización de alertas**: Notificaciones cuando el stock baja de umbrales
+- **Escalabilidad**: Arquitectura preparada para multi-local en el futuro
+
+---
+
+## 🏗️ Arquitectura del Sistema
+
+### Enfoque: Microservicios
+
+El sistema está dividido en **microservicios independientes**, cada uno con su propia responsabilidad de negocio. Esta arquitectura permite:
+
+- Despliegue independiente de cada módulo
+- Escalabilidad individual por servicio
+- Aislamiento de fallos
+- Tecnología optimizada por caso de uso
+
+### Modelo de Comunicación Híbrido
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React/Vue)                     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   API GATEWAY     │
+                    │  (Future/NGINX)   │
+                    └─────────┬─────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+    ┌────▼────┐         ┌─────▼─────┐        ┌─────▼────┐
+    │  SALA   │         │  CARTA    │        │ RESERVAS │
+    │ Service │         │  Service  │        │ Service  │
+    └────┬────┘         └─────┬─────┘        └─────┬────┘
+         │                    │                    │
+         │    ┌───────────────┼───────────────┐    │
+         │    │               │               │    │
+         ▼    ▼               ▼               ▼    ▼
+    ┌─────────────────────────────────────────────────────┐
+    │              REDIS STREAMS (Event Bus)              │
+    │         Publicación/Subscripción de Eventos         │
+    └─────────────────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+    ┌────▼────┐         ┌─────▼─────┐        ┌─────▼────┐
+    │  CAJA   │         │ PERSONAL  │        │  MEDIA   │
+    │ Service │         │  Service  │        │ Service  │
+    └─────────┘         └───────────┘        └──────────┘
+```
+
+---
+
+## 🛠️ Stack Tecnológico del Backend
+
+### Framework y Lenguaje
+
+| Componente | Tecnología | Versión |
+|------------|-------------|---------|
+| **Lenguaje** | Java | 21 |
+| **Framework** | Spring Boot | 3.5.11 |
+| **Build Tool** | Maven | - |
+
+### Dependencias Principales
+
+#### Spring Boot Starters
+- **spring-boot-starter-web**: REST APIs con Spring MVC
+- **spring-boot-starter-data-jpa**: Acceso a datos con Hibernate/JPA
+- **spring-boot-starter-validation**: Validación de beans con Bean Validation
+- **spring-boot-starter-security**: Autenticación y autorización
+- **spring-boot-starter-data-redis**: Integración con Redis Streams
+- **spring-boot-starter-actuator**: Health checks y métricas
+
+#### Base de Datos
+- **PostgreSQL**: Base de datos relacional principal (v16-alpine)
+- **Driver**: org.postgresql:postgresql
+
+#### Seguridad
+- **JWT**: io.jsonwebtoken (jjwt) v0.12.3
+  - jjwt-api
+  - jjwt-impl
+  - jjwt-jackson
+
+#### Utilidades
+- **Lombok**: Reducción de boilerplate en entidades y DTOs
+
+### Infraestructura
+
+| Servicio | Tecnología | Propósito |
+|----------|------------|-----------|
+| **Base de Datos** | PostgreSQL 16 (Alpine) | Almacenamiento persistente |
+| **Message Broker** | Redis 7 (Alpine) | Streams para eventos y caché |
+| **Contenedores** | Docker/Docker Compose | Orquestación de servicios |
+
+---
+
+## 📦 Microservicios del Backend
+
+### 1. SALA Service (`rest-sala-service`)
+
+**Puerto**: Por configurar (típico: 8081)
+**Descripción**: Gestión operativa diaria del restaurante
+
+**Responsabilidades**:
+- Gestión de salas (configuración de planos)
+- Gestión de mesas y estados operativos
+- Comandas y seguimiento de pedidos
+- Flujo de platos por rondas (entrantes, primeros, segundos, постres)
+- Control de estado del servicio
+
+**Entidades principales**:
+- Sala
+- Mesa
+- Comanda
+- ItemComanda
+
+**Eventos publicados**:
+- `comanda.abierta`
+- `plato.pedido`
+- `plato.enviado.cocina`
+- `plato.servido`
+
+---
+
+### 2. CARTA Service (`rest-carta-service`)
+
+**Puerto**: Por configurar (típico: 8082)
+**Descripción**: Núcleo económico y de gestión de producto
+
+**Responsabilidades**:
+- Catálogo de ingredientes y distribuidores
+- Gestión de stock de ingredientes
+- Escandallos (fichas técnicas de platos)
+- Platos y menús
+- Tipos de carta por horario
+- Cálculo de coste real de platos
+- Alertas de stock mínimo
+
+**Entidades principales**:
+- Ingrediente
+- Distribuidor
+- Plato
+- Escandallo
+- TipoCarta
+
+**Eventos consumidos**:
+- `sala.plato.pedido` → Descuenta stock, incrementa contador
+- `sala.comanda.cerrada` → Regenerar estadísticas
+
+**Eventos publicados**:
+- `ingrediente.stock.bajo` (alerta)
+- `plato.coste.actualizado`
+
+---
+
+### 3. RESERVAS Service (`rest-reserva-service`)
+
+**Puerto**: Por configurar (típico: 8083)
+**Descripción**: Planificación y previsión de ocupación
+
+**Responsabilidades**:
+- Franjas horarias disponibles
+- Reservas de mesa
+- Número de comensales
+- Estado de reservas (confirmada, pendiente, cancelada, completada)
+- Asociación reserva → mesa
+- Integración con Sala para estado en tiempo real
+
+**Entidades principales**:
+- Reserva
+- FranjaHoraria
+- Mesa (referencia)
+
+---
+
+### 4. CAJA Service
+
+**Descripción**: Gestión económica diaria
+
+**Responsabilidades**:
+- Apertura y cierre de caja
+- Tickets y facturación
+- Métodos de pago (efectivo, tarjeta, bizum)
+- Totales diarios y arqueo
+- Procesamiento de cobros
+
+**Eventos consumidos**:
+- `sala.comanda.cuenta.solicitada` → Generar ticket
+
+**Eventos publicados**:
+- `ticket.procesado`
+- `ticket.pagado`
+- `caja.abierta`
+- `caja.cerrada`
+
+---
+
+### 5. PERSONAL Service (`rest-personal-service`)
+
+**Puerto**: Por configurar (típico: 8084)
+**Descripción**: Seguridad y gestión de usuarios
+
+**Responsabilidades**:
+- Gestión de usuarios del sistema
+- Roles y permisos:
+  - **OWNER** (Propietario): Acceso total
+  - **MANAGER** (Gerente): Gestión operativa
+  - **WAITER** (Camarero**: Operación básica
+- Firma de tokens JWT
+- Validación de autenticación
+
+**Entidades principales**:
+- Usuario
+- Rol
+
+**Roles del sistema**:
+```
+OWNER    → Acceso total: config, reportes, finanzas
+MANAGER  → Gestión: mesas, cartas, personal, reportes
+WAITER   → Operación: comandas, pedidos, reservas
+```
+
+---
+
+### 6. MEDIA Service
+
+**Descripción**: Gestión de archivos estáticos
+
+**Responsabilidades**:
+- Subida de imágenes (platos, ingredientes)
+- Generación de URLs firmadas (seguridad)
+- Servir como CDN interno
+
+---
+
+## 🔄 Comunicación entre Microservicios
+
+### Patrón: Event-Driven Architecture
+
+#### REST (Operaciones Síncronas)
+- Consultas directas entre servicios
+- Operaciones administrativas
+- Creación/actualización de recursos
+- Comunicación punto a punto
+
+**Ejemplos**:
+- Frontend → Sala: "Crear comanda"
+- Frontend → Carta: "Obtener menú del día"
+- Frontend → Personal: "Login"
+
+#### Redis Streams (Eventos Asíncronos)
+- Eventos de negocio que requieren múltiples reaccionadores
+- Desacoplamiento fuerte entre servicios
+- Garantía de procesamiento
+- Idempotencia
+
+**Eventos del sistema**:
+
+| Evento | Productor | Consumi­dores | Descripción |
+|--------|-----------|---------------|-------------|
+| `sala.comanda.abierta` | Sala | Carta, Reservas | Nueva comanda iniciada |
+| `sala.plato.pedido` | Sala | Carta, Caja | Plato añadido a comanda |
+| `sala.plato.enviado` | Sala | Carta | Plato enviado a cocina |
+| `sala.plato.servido` | Sala | Carta | Plato servido al cliente |
+| `sala.comanda.cerrada` | Sala | Carta, Caja | Comanda finalizada |
+| `carta.ingrediente.stock.bajo` | Carta | (Alertas) | Stock mínimo alcanzado |
+| `caja.ticket.pagado` | Caja | Sala | Ticketcobrado |
+
+---
+
+## 🔐 Seguridad
+
+### Autenticación y Autorización
+
+```
+┌──────────────┐     JWT Firmado      ┌──────────────────┐
+│   CLIENTE   │ ─────────────────►  │   MICROSERVICIO  │
+│  (Frontend) │    Authorization:    │    (Validación)  │
+│             │    Bearer <token>    │                  │
+└──────────────┘                      └──────────────────┘
+       │                                      │
+       │                                      ▼
+       │                              ┌──────────────────┐
+       │                              │  PERSONAL Service │
+       │                              │  (Firma/Validación)│
+       │                              └──────────────────┘
+       │                                     │
+       ▼                                     ▼
+┌──────────────┐                      ┌──────────────────┐
+│    LOGIN     │◄─────────────────────│  JWT Generation  │
+│  (Credenciales)                     │  (Usuario + Rol) │
+└──────────────┘                      └──────────────────┘
+```
+
+### Flujo de Seguridad
+
+1. **Login**: Cliente envía credenciales a Personal Service
+2. **Firma**: Personal Service genera JWT con:
+   - `sub`: userId
+   - `name`: nombre del usuario
+   - `role`: rol del usuario (OWNER, MANAGER, WAITER)
+3. **Token**: Cliente incluye JWT en header `Authorization: Bearer <token>`
+4. **Validación**: Cada microservicio valida:
+   - Firma del token (secret compartido)
+   - Expiración
+   - Permisos (Spring Security `@PreAuthorize`)
+
+### Configuración de Seguridad
+
+```java
+// Ejemplo de protección por rol
+@PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
+public ComandaResponse crear(@Valid @RequestBody ComandaRequest request)
+
+@PreAuthorize("hasAnyRole('OWNER','MANAGER')")  // Waiter no puede eliminar
+public ResponseEntity<Void> cancelar(@PathVariable UUID id)
+```
+
+---
+
+## 🔀 Flujos Principales del Sistema
+
+### Flujo 1: Apertura de Comanda
+
+```
+1. Camarero selecciona mesa → Frontend → Sala Service
+2. Sala verifica mesa disponible (sin comanda activa)
+3. Sala crea Comanda con estado ABIERTA
+4. Sala actualiza estado mesa → OCUPADA
+5. Sala publica evento Redis: comanda.abierta
+6. Carta consume evento → Prepara seguimiento de stock
+7. Frontend recibe respuesta con ID de comanda
+```
+
+### Flujo 2: Pedido de Plato
+
+```
+1. Camarero añade plato(s) a la comanda
+2. Sala Service:
+   - Crea ItemComanda para cada plato
+   - Asigna numeroRonda y tipoRonda
+   - Calcula subtotal
+3. Sala publica evento: plato.pedido
+4. Carta consume evento:
+   - Descuenta ingredientes del stock
+   - Incrementa contador de veces pedido
+   - Verifica umbrales → emite alerta si bajo mínimo
+5. Caja consume evento → Prepara línea de ticket
+6. Frontend actualiza vista de comanda
+```
+
+### Flujo 3: Envío a Cocina
+
+```
+1. Jefe de cocina/Bar solicita envío de ronda
+2. Sala Service:
+   - Cambia estado items → EN_PREPARACION
+   - Registra horaEnvioCocina
+   - Avanza estado comanda → EN_PREPARACION
+3. Sala publica evento: plato.enviado.cocina
+4. Carta consume evento → Actualiza disponibilidad (si es necesario)
+```
+
+### Flujo 4: Servicio del Plato
+
+```
+1. Cocinero marca plato como "listo"
+2. Camarero marca como "servido"
+3. Sala Service:
+   - Actualiza estado → SERVIDO
+   - Registra horaServido
+4. Sala publica evento: plato.servido
+5. Carta consume evento → Actualiza estadísticas
+```
+
+### Flujo 5: Cierre de Comanda y Pago
+
+```
+1. Camarero solicita cuenta
+2. Sala:
+   - Cambia estado → CUENTA
+   - Calcula total con descuentos
+   - Genera detalle deitems
+3. Sala publica evento: comanda.cuenta.solicitada
+4. Caja consume evento → Genera ticket
+5. Cliente paga
+6. Caja:
+   - Registra método de pago
+   - Cambia estado → COBRADA
+   - Registra fechaCierre
+7. Caja publica evento: ticket.pagado
+8. Sala consume evento:
+   - Cambia estado comanda → COBRADA
+   - Libera mesa → DISPONIBLE
+9. Carta consume evento → Regenera informes de consumo
+```
+
+---
+
+## 📊 Modelo de Datos (Entidades Principales)
+
+### SALA Service
+
+```
+Sala
+├── id: UUID
+├── nombre: String
+├── capacidadTotal: Integer
+└── activo: Boolean
+
+Mesa
+├── id: UUID
+├── salaId: UUID
+├── numero: Integer
+├── capacidad: Integer
+├── estadoOperativo: MesaEstadoOperativo
+└── comandaActivaId: UUID (nullable)
+
+Comanda
+├── id: UUID
+├── mesaId: UUID
+├── camareroId: UUID
+├── codigo: String (único)
+├── estado: ComandaEstado
+├── numeroComensales: Integer
+├── notas: Text
+├── total: BigDecimal
+├── descuentoPorcentaje: BigDecimal
+├── rondaActual: TipoRonda
+├── numeroRondaActual: Integer
+├── fechaApertura: OffsetDateTime
+└── fechaCierre: OffsetDateTime
+
+ItemComanda
+├── id: UUID
+├── comandaId: UUID
+├── platoId: UUID
+├── nombrePlato: String
+├── cantidad: Integer
+├── precioUnitario: BigDecimal
+├── subtotal: BigDecimal
+├── tipoRonda: TipoRonda
+├── numeroRonda: Integer
+├── ordenEnRonda: Integer
+├── estado: ItemEstado
+├── notas: Text
+├── horaPedido: OffsetDateTime
+├── horaEnvioCocina: OffsetDateTime
+├── horaListo: OffsetDateTime
+└── horaServido: OffsetDateTime
+```
+
+### CARTA Service
+
+```
+Ingrediente
+├── id: UUID
+├── nombre: String
+├── unidadMedida: String
+├── stockActual: BigDecimal
+├── stockMinimo: BigDecimal
+├── precioUnidad: BigDecimal
+├── distribuidorId: UUID
+└── activo: Boolean
+
+Plato
+├── id: UUID
+├── nombre: String
+├── descripcion: Text
+├── precioVenta: BigDecimal
+├── tipoPlato: TipoPlato
+├── tipoRonda: TipoRonda
+├── disponible: Boolean
+├── imagenUrl: String
+├── numeroVecesPedido: Integer
+└── activo: Boolean
+
+Escandallo
+├── id: UUID
+├── platoId: UUID
+├── ingredienteId: UUID
+├── cantidad: BigDecimal
+└── coste: BigDecimal
+```
+
+### PERSONAL Service
+
+```
+Usuario
+├── id: UUID
+├── username: String (único)
+├── password: String (encriptada)
+├── nombre: String
+├── email: String
+├── rol: Rol
+├── activo: Boolean
+└── fechaAlta: OffsetDateTime
+```
+
+### RESERVAS Service
+
+```
+Reserva
+├── id: UUID
+├── mesaId: UUID
+├── nombreCliente: String
+├── telefono: String
+├── email: String
+├── fechaHora: OffsetDateTime
+├── numeroComensales: Integer
+├── estado: ReservaEstado
+├── notas: Text
+└── fechaCreacion: OffsetDateTime
+```
+
+---
+
+## 🧪 Testing y Desarrollo
+
+### Herramientas de Testing
+
+- **JUnit 5**: Framework de testing unitario
+- **Spring Boot Test**: Testing de integración
+- **Spring Security Test**: Testing de seguridad
+- **MockMvc**: Testing de controllers REST
+
+### Configuración de Desarrollo
+
+```yaml
+# application.yml ejemplo
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/suances_sala
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8081
+```
+
+---
+
+## 🚀 Despliegue
+
+### Docker Compose (Infraestructura)
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+### Puertos típicos de servicios
+
+| Servicio | Puerto |
+|----------|--------|
+| Sala Service | 8081 |
+| Carta Service | 8082 |
+| Reservas Service | 8083 |
+| Caja Service | 8084 |
+| Personal Service | 8085 |
+| Media Service | 8086 |
+
+---
+
+## 📈 Métricas y Observabilidad
+
+### Spring Boot Actuator
+
+Cada servicio incluye:
+- **Health endpoint**: `/actuator/health`
+- **Info endpoint**: `/actuator/info`
+- **Metrics**: `/actuator/metrics`
+- **Environment**: `/actuator/env`
+
+---
+
+## 🔮 Roadmap y Mejoras Futuras
+
+- [ ] API Gateway (NGINX o Spring Cloud Gateway)
+- [ ] Service Discovery (Consul/Eureka)
+- [ ] Circuit Breaker (Resilience4j)
+- [ ] Multi-tenancy (multi-local)
+- [ ] Dashboard analytics
+- [ ] App móvil (React Native)
+- [ ] Integración con TPV硬件
+
+---
+
+## 📁 Estructura de Proyecto
+
+```
+suances/
+├── backend/
+│   ├── rest-sala-service/
+│   │   ├── src/main/java/com/suances/sala/
+│   │   │   ├── controller/
+│   │   │   ├── service/
+│   │   │   ├── repository/
+│   │   │   ├── domain/
+│   │   │   │   ├── model/
+│   │   │   │   ├── dto/
+│   │   │   │   └── enums/
+│   │   │   ├── event/
+│   │   │   ├── exception/
+│   │   │   └── config/
+│   │   └── pom.xml
+│   ├── rest-carta-service/
+│   ├── rest-reserva-service/
+│   └── rest-personal-service/
+├── frontend/
+│   ├── suances-app/ (React Native - futuro)
+│   └── suances-landing/ (Landing web)
+├── docs/
+│   ├── sala/
+│   ├── carta/
+│   ├── reservas/
+│   └── personal/
+├── docker/
+│   ├── postgres/
+│   │   └── init.sql
+│   └── docker-compose-infra.yml
+└── docker-compose.yml
+```
+
+---
+
+## 📝 Convenciones de Código
+
+### Estructura de Paquetes
+```
+com.suances.[servicio]
+├── controller    # REST endpoints
+├── service       # Lógica de negocio
+├── repository    # Acceso a datos (JPA)
+├── domain        # Entidades y value objects
+│   ├── model     # JPA Entities
+│   ├── dto       # Data Transfer Objects
+│   └── enums     # Enumeraciones
+├── event         # Productores/consumidores de eventos
+├── exception     # Excepciones personalizadas
+└── config        # Configuración de Spring
+```
+
+### Nomenclatura
+- **Clases**: PascalCase (`ComandaController`, `ComandaService`)
+- **Métodos**: camelCase (`crearComanda`, `obtenerComanda`)
+- **DTOs**: Postfix `Request` o `Response` (`ComandaRequest`, `ComandaResponse`)
+- **Entidades**: Nombre del dominio en singular (`Comanda`, `Mesa`)
+- **Tablas BD**: Plural (`comandas`, `mesas`)
+- **Variables**: camelCase, nombres descriptivos
+
+---
+
+*Documento generado para referencia técnica del proyecto Suances*
+*Versión: 1.0*

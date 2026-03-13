@@ -42,6 +42,10 @@ public class Usuario {
     @Builder.Default
     private Boolean activo = true;
 
+    @Column(name = "modo_espia", nullable = false)
+    @Builder.Default
+    private Boolean modoEspia = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

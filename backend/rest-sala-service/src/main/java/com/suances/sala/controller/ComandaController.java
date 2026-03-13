@@ -2,6 +2,7 @@ package com.suances.sala.controller;
 
 import com.suances.sala.domain.dto.request.ComandaRequest;
 import com.suances.sala.domain.dto.response.ComandaDetalleRondasResponse;
+import com.suances.sala.domain.dto.response.ComandaHoyResponse;
 import com.suances.sala.domain.dto.response.ComandaResponse;
 import com.suances.sala.domain.model.enums.ComandaEstado;
 import com.suances.sala.service.ComandaService;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,6 +49,13 @@ public class ComandaController {
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     public Page<ComandaResponse> listarPorEstado(@PathVariable ComandaEstado estado, Pageable pageable) {
         return comandaService.listarComandasPorEstado(estado, pageable);
+    }
+
+    @GetMapping("/hoy")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    public ResponseEntity<List<ComandaHoyResponse>> listarComandasHoy() {
+        List<ComandaHoyResponse> comandas = comandaService.listarComandasHoy();
+        return ResponseEntity.ok(comandas);
     }
 
     @GetMapping("/{id}")

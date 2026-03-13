@@ -174,7 +174,7 @@ public class ReservasEventConsumer {
     }
 
     private void procesarReservaCreada(ReservaCreatedEvent evento) {
-        log.info("Reserva creada para mesa {}: {}", evento.getMesaId(), evento.getCodigo());
+        log.info("Reserva creada para mesa {}: {} (origen: {})", evento.getMesaId(), evento.getCodigo(), evento.getOrigen());
         
         // Verificar que la reserva sea para el día actual
         if (!esReservaHoy(evento.getFecha())) {
@@ -182,36 +182,47 @@ public class ReservasEventConsumer {
             return;
         }
         
-        // Verificar si la reserva es para la franja actual
-        if (!esFranjaActual(evento.getFranjaId())) {
-            log.debug("Reserva {} es para franja {} (no es la actual), sincronizando pero no emitiendo SSE", 
-                    evento.getCodigo(), evento.getFranjaId());
-            // Sincronizamos la mesa pero NO emitimos SSE
+        // Para reservas WALKIN (creadas desde comanda), rechazar completamente el evento
+        // porque la mesa ya está gestionada por la comanda activa
+        if ("WALKIN".equals(evento.getOrigen())) {
+            log.info("Reserva WALKIN {} rechazada - la mesa {} ya está gestionada por comanda activa", 
+                    evento.getCodigo(), evento.getMesaId());
+            return;
         }
         
         Optional<MesaOperativa> optionalMesa = mesaOperativaRepository.findById(evento.getMesaId());
         if (optionalMesa.isPresent()) {
             MesaOperativa mesa = optionalMesa.get();
+            
+            // Guardar información de la reserva en la mesa
             mesa.setReservaActualId(evento.getId());
             mesa.setNombreClienteReserva(evento.getNombreCliente());
             mesa.setFranjaIdReserva(evento.getFranjaId());
             mesa.setFechaReserva(LocalDate.parse(evento.getFecha()));
             mesaOperativaRepository.save(mesa);
-            log.info("Mesa {} actualizada con reserva {} en franja {}", evento.getMesaId(), evento.getId(), evento.getFranjaId());
+            log.info("Mesa {} actualizada con reserva {} en franja {}", 
+                    evento.getMesaId(), evento.getId(), evento.getFranjaId());
             
-            // Emitir evento SSE a clientes conectados SOLO si es la franja actual
-            if (esFranjaActual(evento.getFranjaId())) {
-                Map<String, Object> eventData = Map.of(
-                    "mesaId", evento.getMesaId(),
-                    "reservaId", evento.getId(),
-                    "estado", "RESERVADA",
-                    "nombreCliente", evento.getNombreCliente(),
-                    "franjaId", evento.getFranjaId(),
-                    "codigo", evento.getCodigo()
-                );
-                sseEmitterManager.broadcast("mesa.reservada", eventData);
-                log.info("[SSE] Evento mesa.reservada emitido para mesa {} (franja actual)", evento.getMesaId());
+            // Verificar si la reserva es para la franja actual
+            if (!esFranjaActual(evento.getFranjaId())) {
+                log.debug("Reserva {} es para franja {} (no es la actual), sincronizando pero no emitiendo SSE", 
+                        evento.getCodigo(), evento.getFranjaId());
+                return;
             }
+            
+            // Emitir evento SSE para reservas normales (ONLINE, MANUAL)
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("mesaId", evento.getMesaId());
+            eventData.put("reservaId", evento.getId());
+            eventData.put("estado", "RESERVADA");
+            eventData.put("nombreCliente", evento.getNombreCliente());
+            eventData.put("franjaId", evento.getFranjaId());
+            eventData.put("codigo", evento.getCodigo());
+            eventData.put("origen", evento.getOrigen());
+            
+            sseEmitterManager.broadcast("mesa.reservada", eventData);
+            log.info("[SSE] Evento mesa.reservada emitido para mesa {} (franja actual)", 
+                    evento.getMesaId());
         } else {
             log.warn("Mesa {} no encontrada para asignar reserva", evento.getMesaId());
         }

@@ -8,6 +8,7 @@ export const colors = {
   warning: '#ff9800',
   warningLight: '#fff3e0',
   error: '#f44336',
+  stockLow: '#fabac9',
   errorLight: '#ffebee',
   background: '#f5f5f5',
   surface: '#ffffff',
@@ -15,6 +16,8 @@ export const colors = {
   textSecondary: '#757575',
   border: '#e0e0e0',
   disabled: '#bdbdbd',
+  white: '#ffffff',
+  lavender: '#b583ff',
 };
 
 export const spacing = {

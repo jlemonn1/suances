@@ -160,6 +160,15 @@ public class CartaEventConsumer {
                         objectMapper.readValue(json, com.suances.sala.event.dto.TipoCartaPlatosChangedEvent.class);
                     procesarTipoCartaPlatosActualizados(tipoCartaPlatos);
                     break;
+                case "carta.pedido_procesado":
+                    procesarPedidoProcesado(json);
+                    break;
+                case "carta.platos_afectados_stock":
+                    procesarPlatosAfectadosStock(json);
+                    break;
+                case "carta.platos_stock_mejorado":
+                    procesarPlatosStockMejorado(json);
+                    break;
                 default:
                     log.warn("Tipo de evento de carta no manejado: {}", tipo);
             }
@@ -376,5 +385,141 @@ public class CartaEventConsumer {
         );
 
         log.info("Tipo de carta {} con platos actualizado correctamente", evento.getTipoCartaId());
+    }
+
+    private void procesarPedidoProcesado(String json) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(json);
+
+            java.util.UUID comandaId = java.util.UUID.fromString(rootNode.get("comandaId").asText());
+            java.util.UUID mesaId = rootNode.has("mesaId") ? java.util.UUID.fromString(rootNode.get("mesaId").asText()) : null;
+            Integer numeroRonda = rootNode.has("numeroRonda") ? rootNode.get("numeroRonda").asInt() : null;
+            String tipoRonda = rootNode.has("tipoRonda") ? rootNode.get("tipoRonda").asText() : null;
+            java.util.UUID camareroId = rootNode.has("camareroId") ? java.util.UUID.fromString(rootNode.get("camareroId").asText()) : null;
+
+            log.info("Pedido procesado recibido: comanda={}, ronda={} - Reenviando via SSE", comandaId, numeroRonda);
+
+            // Reenviar el evento completo via SSE a los clientes conectados
+            java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+            eventData.put("comandaId", comandaId);
+            eventData.put("mesaId", mesaId);
+            eventData.put("numeroRonda", numeroRonda);
+            eventData.put("tipoRonda", tipoRonda);
+            eventData.put("camareroId", camareroId);
+            eventData.put("timestamp", java.time.OffsetDateTime.now().toString());
+
+            // Incluir items e ingredientes si están presentes
+            if (rootNode.has("items")) {
+                eventData.put("items", objectMapper.readValue(rootNode.get("items").toString(), java.util.List.class));
+            }
+
+            sseEmitterManager.broadcast("carta.pedido_procesado", eventData);
+            log.info("[SSE] Evento carta.pedido_procesado reenviado: comanda={}, ronda={}", comandaId, numeroRonda);
+
+        } catch (Exception e) {
+            log.error("Error al procesar pedido procesado", e);
+        }
+    }
+
+    private void procesarPlatosAfectadosStock(String json) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(json);
+
+            log.info("Procesando platos afectados por stock bajo");
+
+            // Si la lista está vacía, limpiar todos los platos (no hay stock bajo)
+            if (!rootNode.has("platos") || rootNode.get("platos").isEmpty()) {
+                log.info("Lista de platos vacía, limpiando todos los flags de stock bajo");
+                cartaSyncService.limpiarTodosStockBajo();
+                
+                java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+                eventData.put("accion", "limpiar_todos");
+                eventData.put("stockBajo", false);
+                eventData.put("timestamp", java.time.OffsetDateTime.now().toString());
+                sseEmitterManager.broadcast("carta.plato_stock_cleared", eventData);
+                log.info("[SSE] Evento carta.plato_stock_cleared emitido");
+                return;
+            }
+
+            // Actualizar stockBajo=true para los platos afectados
+            for (com.fasterxml.jackson.databind.JsonNode platoNode : rootNode.get("platos")) {
+                java.util.UUID platoId = java.util.UUID.fromString(platoNode.get("platoId").asText());
+                String nombre = platoNode.get("nombre").asText();
+
+                // Actualizar en BD
+                cartaSyncService.actualizarStockBajoPlato(platoId, true);
+
+                // Preparar datos de ingredientes bajos
+                java.util.List<java.util.Map<String, Object>> ingredientesBajos = new java.util.ArrayList<>();
+                if (platoNode.has("ingredientesBajos")) {
+                    for (com.fasterxml.jackson.databind.JsonNode ingNode : platoNode.get("ingredientesBajos")) {
+                        java.util.Map<String, Object> ingData = new java.util.HashMap<>();
+                        ingData.put("ingredienteId", ingNode.get("ingredienteId").asText());
+                        ingData.put("nombre", ingNode.get("nombre").asText());
+                        ingData.put("stockActual", ingNode.get("stockActual").asDouble());
+                        ingData.put("umbralAlerta", ingNode.get("umbralAlerta").asDouble());
+                        ingData.put("unidadMedida", ingNode.get("unidadMedida").asText());
+                        ingredientesBajos.add(ingData);
+                    }
+                }
+
+                // Emitir SSE
+                java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+                eventData.put("platoId", platoId);
+                eventData.put("nombre", nombre);
+                eventData.put("stockBajo", true);
+                eventData.put("ingredientesBajos", ingredientesBajos);
+                eventData.put("timestamp", java.time.OffsetDateTime.now().toString());
+
+                sseEmitterManager.broadcast("carta.plato_stock_changed", eventData);
+                log.info("[SSE] Evento carta.plato_stock_changed emitido para plato {} - stockBajo: true", platoId);
+            }
+
+            log.info("Platos afectados por stock procesados correctamente");
+
+        } catch (Exception e) {
+            log.error("Error al procesar platos afectados por stock", e);
+        }
+    }
+
+    private void procesarPlatosStockMejorado(String json) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(json);
+
+            log.info("[SALA-STOCK] === PROCESANDO evento carta.platos_stock_mejorado ===");
+            log.info("[SALA-STOCK] JSON recibido: {}", json);
+
+            // Actualizar stockBajo=false para los platos recuperados
+            if (rootNode.has("platos")) {
+                log.info("[SALA-STOCK] Numero de platos en el evento: {}", rootNode.get("platos").size());
+                for (com.fasterxml.jackson.databind.JsonNode platoNode : rootNode.get("platos")) {
+                    java.util.UUID platoId = java.util.UUID.fromString(platoNode.get("platoId").asText());
+                    String nombre = platoNode.get("nombre").asText();
+
+                    log.info("[SALA-STOCK] Actualizando plato recuperado: {} ({})", nombre, platoId);
+
+                    // Actualizar en BD
+                    cartaSyncService.actualizarStockBajoPlato(platoId, false);
+
+                    // Emitir SSE
+                    java.util.Map<String, Object> eventData = new java.util.HashMap<>();
+                    eventData.put("platoId", platoId);
+                    eventData.put("nombre", nombre);
+                    eventData.put("stockBajo", false);
+                    eventData.put("ingredientesBajos", new java.util.ArrayList<>());
+                    eventData.put("timestamp", java.time.OffsetDateTime.now().toString());
+
+                    sseEmitterManager.broadcast("carta.plato_stock_changed", eventData);
+                    log.info("[SALA-STOCK] === SSE emitido para plato {} - stockBajo: false", platoId);
+                }
+            } else {
+                log.info("[SALA-STOCK] No hay platos en el evento (lista vacia)");
+            }
+
+            log.info("[SALA-STOCK] Platos con stock mejorado procesados correctamente");
+
+        } catch (Exception e) {
+            log.error("[SALA-STOCK] Error al procesar platos con stock mejorado", e);
+        }
     }
 }

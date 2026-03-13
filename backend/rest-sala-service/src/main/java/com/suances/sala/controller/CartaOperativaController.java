@@ -1,6 +1,7 @@
 package com.suances.sala.controller;
 
 import com.suances.sala.domain.dto.response.IngredienteOperativoResponse;
+import com.suances.sala.domain.dto.response.IngredienteStockBajoResponse;
 import com.suances.sala.domain.dto.response.PlatoOperativoResponse;
 import com.suances.sala.domain.dto.response.TipoCartaOperativoResponse;
 import com.suances.sala.domain.model.CartaIngredienteOperativo;
@@ -65,6 +66,14 @@ public class CartaOperativaController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/platos/stock-bajo-afectados")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
+    public List<PlatoOperativoResponse> listarPlatosStockBajoAfectados() {
+        return cartaSyncService.obtenerPlatosConStockBajoFlag().stream()
+                .map(this::mapToPlatoResponse)
+                .collect(Collectors.toList());
+    }
+
     @GetMapping("/ingredientes")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
     public List<IngredienteOperativoResponse> listarIngredientes() {
@@ -102,12 +111,23 @@ public class CartaOperativaController {
     }
 
     private PlatoOperativoResponse mapToPlatoResponse(CartaPlatoOperativo plato) {
-        boolean stockBajo = plato.getStockDisponible() != null && 
-                plato.getStockDisponible().compareTo(new BigDecimal(5)) <= 0;
+        // Usar el flag persistido de stockBajo (actualizado por eventos de carta-service)
+        Boolean stockBajo = plato.getStockBajo() != null ? plato.getStockBajo() : false;
         
         // Obtener ingredientes del plato
         List<String> ingredientes = cartaSyncService.obtenerIngredientesPlato(plato.getPlatoId()).stream()
                 .map(CartaPlatoIngredienteOperativo::getIngredienteNombre)
+                .collect(Collectors.toList());
+        
+        // Obtener ingredientes con stock bajo del plato
+        List<IngredienteStockBajoResponse> ingredientesBajos = cartaSyncService.obtenerIngredientesBajosPlato(plato.getPlatoId()).stream()
+                .map(i -> new IngredienteStockBajoResponse(
+                        i.getIngredienteId(),
+                        i.getNombre(),
+                        i.getStockActual(),
+                        i.getUmbralAlerta(),
+                        i.getUnidadMedida().name()
+                ))
                 .collect(Collectors.toList());
         
         return new PlatoOperativoResponse(
@@ -121,7 +141,8 @@ public class CartaOperativaController {
                 plato.getDisponible(),
                 stockBajo,
                 plato.getImagenUrl(),
-                ingredientes
+                ingredientes,
+                ingredientesBajos
         );
     }
 

@@ -12,16 +12,18 @@ public class PersonnelResponse {
     private Rol role;
     private String imageUrl;
     private Boolean activo;
+    private Boolean modoEspia;
     private LocalDateTime createdAt;
 
     public PersonnelResponse(UUID id, String username, String fullName, Rol role,
-            String imageUrl, Boolean activo, LocalDateTime createdAt) {
+            String imageUrl, Boolean activo, Boolean modoEspia, LocalDateTime createdAt) {
         this.id = id;
         this.username = username;
         this.fullName = fullName;
         this.role = role;
         this.imageUrl = imageUrl;
         this.activo = activo;
+        this.modoEspia = modoEspia;
         this.createdAt = createdAt;
     }
 

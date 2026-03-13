@@ -131,6 +131,9 @@ export const SalaScreen: React.FC = () => {
       setShowNuevaComanda(true);
     } else if (mesa.estadoOperativo === 'OCUPADA' && mesa.comandaActivaId) {
       navigation.navigate('ComandaDetail', { comandaId: mesa.comandaActivaId });
+    } else if (mesa.estadoOperativo === 'CUENTA' && mesa.comandaActivaId) {
+      // Mesa con cuenta cerrada - navegar a la comanda para cobrar
+      navigation.navigate('ComandaDetail', { comandaId: mesa.comandaActivaId });
     }
   };
 

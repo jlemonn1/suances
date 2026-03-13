@@ -22,3 +22,9 @@ export interface LoginResponse {
     imageUrl?: string;
   };
 }
+
+export interface WaiterSession {
+  user: User;
+  token: string;
+  loginDate: string; // YYYY-MM-DD
+}

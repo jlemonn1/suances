@@ -6,6 +6,7 @@ import com.suances.reservas.domain.model.Reserva;
 import com.suances.reservas.domain.model.enums.BloqueoTipo;
 import com.suances.reservas.domain.model.enums.ReservaEstado;
 import com.suances.reservas.domain.model.enums.ReservaOrigen;
+import com.suances.reservas.dto.ComandaReservaRequest;
 import com.suances.reservas.dto.MesasOcupadasResponse;
 import com.suances.reservas.dto.ReservaRequest;
 import com.suances.reservas.dto.ReservaResponse;
@@ -26,8 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -232,6 +236,91 @@ public class ReservaService {
         if (bloqueoTotal && !force) {
             throw new BusinessRuleException("La mesa está bloqueada");
         }
+    }
+
+    @Transactional
+    public ReservaResponse crearReservaDesdeComanda(ComandaReservaRequest request) {
+        Mesa mesa = mesaRepository.findById(request.mesaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Mesa no encontrada"));
+        
+        // Verificar que la mesa pertenece a la sala indicada
+        if (!mesa.getSala().getId().equals(request.salaId())) {
+            throw new BusinessRuleException("La mesa no pertenece a la sala indicada");
+        }
+        
+        // Obtener fecha actual en zona horaria de Madrid
+        LocalDate fecha = LocalDate.now(ZoneId.of("Europe/Madrid"));
+        
+        // Obtener hora actual para determinar franja
+        LocalTime horaActual = LocalTime.now(ZoneId.of("Europe/Madrid"));
+        
+        // Determinar franja según hora actual
+        FranjaHoraria franja = determinarFranjaPorHora(horaActual);
+        
+        // Crear reserva WALKIN
+        Reserva reserva = new Reserva();
+        reserva.setMesa(mesa);
+        reserva.setFranja(franja);
+        reserva.setFecha(fecha);
+        reserva.setComensales(request.numeroComensales());
+        reserva.setNombreCliente("Mesa de " + request.camareroNombre());
+        reserva.setTelefono("0000");
+        reserva.setEmail(null);
+        reserva.setNotas("Reserva creada automáticamente desde comanda");
+        reserva.setOrigen(ReservaOrigen.WALKIN);
+        reserva.setEstado(ReservaEstado.CONFIRMADA);
+        reserva.setCodigo(generarCodigo());
+        
+        // Forzar la creación sin validaciones de disponibilidad
+        Reserva guardada = reservaRepository.save(reserva);
+        ReservaResponse response = map(guardada);
+        
+        logger.info("[RESERVA] Creando reserva desde comanda - id: {}, codigo: {}, mesa: {}, fecha: {}, franja: {}, camarero: {}", 
+            response.id(), response.codigo(), response.mesaId(), response.fecha(), response.franjaId(), request.camareroNombre());
+        
+        eventProducer.publish("reserva.created", response);
+        sseEmitterManager.broadcast("reserva.created", response);
+        
+        logger.info("[RESERVA] Evento publicado: reserva.created para reserva {}", response.codigo());
+        return response;
+    }
+    
+    private FranjaHoraria determinarFranjaPorHora(LocalTime hora) {
+        // Buscar todas las franjas activas
+        List<FranjaHoraria> franjas = franjaRepository.findAll().stream()
+                .filter(FranjaHoraria::isActiva)
+                .toList();
+        
+        // Buscar franja que contenga la hora actual
+        Optional<FranjaHoraria> franjaActual = franjas.stream()
+                .filter(f -> !hora.isBefore(f.getHoraInicio()) && hora.isBefore(f.getHoraFin()))
+                .findFirst();
+        
+        if (franjaActual.isPresent()) {
+            return franjaActual.get();
+        }
+        
+        // Si no hay franja para la hora actual, usar la primera disponible o crear una por defecto
+        if (!franjas.isEmpty()) {
+            // Buscar primero COMIDA, luego CENA, luego cualquiera
+            Optional<FranjaHoraria> comida = franjas.stream()
+                    .filter(f -> f.getTipo().name().equals("COMIDA"))
+                    .findFirst();
+            if (comida.isPresent()) {
+                return comida.get();
+            }
+            
+            Optional<FranjaHoraria> cena = franjas.stream()
+                    .filter(f -> f.getTipo().name().equals("CENA"))
+                    .findFirst();
+            if (cena.isPresent()) {
+                return cena.get();
+            }
+            
+            return franjas.get(0);
+        }
+        
+        throw new BusinessRuleException("No hay franjas horarias configuradas");
     }
 
     private ReservaResponse map(Reserva reserva) {

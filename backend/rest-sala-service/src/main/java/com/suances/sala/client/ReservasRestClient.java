@@ -1,6 +1,8 @@
 package com.suances.sala.client;
 
+import com.suances.sala.client.dto.ComandaReservaRequest;
 import com.suances.sala.client.dto.FranjaResponse;
+import com.suances.sala.client.dto.ReservaResponseDto;
 import com.suances.sala.client.dto.SalaResponse;
 import com.suances.sala.dto.MesaEstadoDto;
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -164,6 +167,38 @@ public class ReservasRestClient {
         } catch (Exception e) {
             log.error("Error al consultar salas en reservas", e);
             return Collections.emptyList();
+        }
+    }
+
+    public ReservaResponseDto crearReservaDesdeComanda(ComandaReservaRequest request) {
+        try {
+            String url = reservasUrl + "/reservas/comanda";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(SERVICE_TOKEN_HEADER, serviceToken);
+            
+            HttpEntity<ComandaReservaRequest> entity = new HttpEntity<>(request, headers);
+
+            log.info("Creando reserva desde comanda para mesa {} en sala {}", request.mesaId(), request.salaId());
+
+            ResponseEntity<ReservaResponseDto> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    ReservaResponseDto.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                log.info("Reserva creada exitosamente: codigo={}", response.getBody().codigo());
+                return response.getBody();
+            } else {
+                log.warn("Respuesta no exitosa al crear reserva desde comanda: {}", response.getStatusCode());
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Error al crear reserva desde comanda", e);
+            return null;
         }
     }
 }

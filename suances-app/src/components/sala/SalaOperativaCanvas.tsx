@@ -20,6 +20,8 @@ const getEstadoColor = (estado: MesaEstadoOperativo, tieneReserva: boolean, tien
       return tieneReserva ? colors.primary : colors.success;
     case 'OCUPADA':
       return colors.warning;
+    case 'CUENTA':
+      return colors.error; // Rojo para cuenta cerrada
     case 'RESERVADA':
       return tieneComanda ? colors.warning : colors.primary;
     case 'BLOQUEADA':
@@ -37,6 +39,8 @@ const getEstadoIcon = (estado: MesaEstadoOperativo, tieneReserva: boolean) => {
       return tieneReserva ? 'calendar' : 'checkmark-circle';
     case 'OCUPADA':
       return 'time';
+    case 'CUENTA':
+      return 'receipt'; // Icono de ticket/cuenta
     case 'RESERVADA':
       return 'calendar';
     case 'BLOQUEADA':
@@ -81,7 +85,7 @@ const MesaCard: React.FC<{
           {mesa.nombreClienteReserva}
         </Text>
       )}
-      {mesa.estadoOperativo === 'OCUPADA' && mesa.codigoComanda && (
+      {(mesa.estadoOperativo === 'OCUPADA' || mesa.estadoOperativo === 'CUENTA') && mesa.codigoComanda && (
         <Text style={styles.comandaText}>{mesa.codigoComanda}</Text>
       )}
     </Pressable>

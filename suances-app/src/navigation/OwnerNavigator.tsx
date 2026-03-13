@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 import { DashboardScreen } from '../screens/owner/DashboardScreen';
+import { ComandasHoyScreen } from '../screens/owner/ComandasHoyScreen';
 import { CartaManagerScreen } from '../screens/owner/CartaManagerScreen';
 import { InventarioScreen } from '../screens/owner/InventarioScreen';
 import { PlatoListScreen } from '../screens/owner/PlatoListScreen';
@@ -21,6 +22,7 @@ import { DistribuidoresScreen } from '../screens/owner/DistribuidoresScreen';
 import { PersonalListScreen } from '../screens/owner/PersonalListScreen';
 import { PersonalDetailScreen } from '../screens/owner/PersonalDetailScreen';
 import { PersonalFormScreen } from '../screens/owner/PersonalFormScreen';
+import { SalaEnVivoScreen } from '../screens/owner/SalaEnVivoScreen';
 import { ReservasHomeScreen } from '../screens/owner/reservas/ReservasHomeScreen';
 import { EspaciosScreen } from '../screens/owner/reservas/EspaciosScreen';
 import { SalaDetailScreen } from '../screens/owner/reservas/SalaDetailScreen';
@@ -46,6 +48,7 @@ const Stack = createNativeStackNavigator<any>();
 
 // Pantallas con animación de entrada
 const DashboardScreenAnimated = withScreenAnimation(DashboardScreen);
+const ComandasHoyScreenAnimated = withScreenAnimation(ComandasHoyScreen);
 const CartaManagerScreenAnimated = withScreenAnimation(CartaManagerScreen);
 const PlatoListScreenAnimated = withScreenAnimation(PlatoListScreen);
 const IngredienteListScreenAnimated = withScreenAnimation(IngredienteListScreen);
@@ -60,6 +63,7 @@ const DistribuidoresScreenAnimated = withScreenAnimation(DistribuidoresScreen);
 const PersonalListScreenAnimated = withScreenAnimation(PersonalListScreen);
 const PersonalDetailScreenAnimated = withScreenAnimation(PersonalDetailScreen);
 const PersonalFormScreenAnimated = withScreenAnimation(PersonalFormScreen);
+const SalaEnVivoScreenAnimated = withScreenAnimation(SalaEnVivoScreen);
 const ReservasHomeScreenAnimated = withScreenAnimation(ReservasHomeScreen);
 const EspaciosScreenAnimated = withScreenAnimation(EspaciosScreen);
 const SalaDetailScreenAnimated = withScreenAnimation(SalaDetailScreen);
@@ -272,6 +276,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+const DashboardStack = () => (
+  <Stack.Navigator screenOptions={liquidScreenOptions}>
+    <Stack.Screen
+      name="DashboardHome"
+      component={DashboardScreenAnimated}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="SalaEnVivo"
+      component={SalaEnVivoScreenAnimated}
+      options={{ title: 'Sala en Vivo' }}
+    />
+    <Stack.Screen
+      name="ComandasHoy"
+      component={ComandasHoyScreenAnimated}
+      options={{ title: 'Comandas del Día' }}
+    />
+  </Stack.Navigator>
+);
 
 const CartaStack = () => (
   <CartaEventsProvider>
@@ -508,7 +532,7 @@ export const OwnerNavigator = () => {
           headerShown: false,
         })}
       >
-        <Tab.Screen name="Dashboard" component={DashboardScreenAnimated} />
+        <Tab.Screen name="Dashboard" component={DashboardStack} />
         <Tab.Screen name="Reservas" component={ReservasStack} />
         <Tab.Screen name="Carta" component={CartaStack} />
         <Tab.Screen name="Inventario" component={InventarioStack} />

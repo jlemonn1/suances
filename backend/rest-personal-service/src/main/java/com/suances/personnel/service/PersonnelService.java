@@ -101,6 +101,17 @@ public class PersonnelService {
         log.info("Usuario desactivado: {}", usuario.getUsername());
     }
 
+    public PersonnelResponse toggleModoEspia(UUID id, Boolean activo) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + id));
+
+        usuario.setModoEspia(activo);
+        usuario = usuarioRepository.save(usuario);
+        log.info("Modo espía {} para usuario: {}", activo ? "activado" : "desactivado", usuario.getUsername());
+
+        return toResponse(usuario);
+    }
+
     private PersonnelResponse toResponse(Usuario usuario) {
         return new PersonnelResponse(
                 usuario.getId(),
@@ -109,6 +120,7 @@ public class PersonnelService {
                 usuario.getRole(),
                 usuario.getImageUrl(),
                 usuario.getActivo(),
+                usuario.getModoEspia(),
                 usuario.getCreatedAt());
     }
 }

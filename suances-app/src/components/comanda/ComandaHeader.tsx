@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius } from '../../theme';
@@ -15,9 +14,7 @@ interface ComandaHeaderProps {
   isOwnerOrManager: boolean;
   modoEdicion: boolean;
   itemsSeleccionados: string[];
-  puedeAgregarPedidos: boolean;
   puedePedirCuenta: boolean;
-  onAddPlatos: () => void;
   onFinalizar: () => void;
   onToggleEdicion: () => void;
   onCancelarEdicion: () => void;
@@ -49,46 +46,12 @@ const getEstadoColor = (estado: ComandaEstado): string => {
   }
 };
 
-const AnimatedAddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
-  const shimmerValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerValue, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.delay(1000),
-      ])
-    );
-    shimmerAnimation.start();
-    return () => shimmerAnimation.stop();
-  }, [shimmerValue]);
-
-  const shimmerTranslate = shimmerValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-60, 200],
-  });
-
-  return (
-    <TouchableOpacity style={styles.addBtn} onPress={onPress} activeOpacity={0.8}>
-      <Ionicons name="add" size={16} color={colors.surface} />
-      <Text style={styles.addBtnText}>Añadir</Text>
-      <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
-    </TouchableOpacity>
-  );
-};
-
 export const ComandaHeader: React.FC<ComandaHeaderProps> = ({
   comanda,
   isOwnerOrManager,
   modoEdicion,
   itemsSeleccionados,
-  puedeAgregarPedidos,
   puedePedirCuenta,
-  onAddPlatos,
   onFinalizar,
   onToggleEdicion,
   onCancelarEdicion,
@@ -173,10 +136,6 @@ export const ComandaHeader: React.FC<ComandaHeaderProps> = ({
           </View>
           
           <View style={styles.botonesCol}>
-            {puedeAgregarPedidos && (
-              <AnimatedAddButton onPress={onAddPlatos} />
-            )}
-            
             {puedePedirCuenta && (
               <TouchableOpacity style={[styles.btn, styles.btnCuenta]} onPress={onFinalizar}>
                 <Ionicons name="receipt-outline" size={16} color={colors.surface} />
@@ -293,35 +252,6 @@ const styles = StyleSheet.create({
   },
   btnHalf: {
     width: 68,
-  },
-  // Botón Añadir
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.accent,
-    gap: 4,
-    height: 32,
-    width: 140,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  addBtnText: {
-    ...typography.caption,
-    color: colors.surface,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  shimmer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    transform: [{ skewX: '-20deg' }],
   },
   // Botones estándar
   btn: {

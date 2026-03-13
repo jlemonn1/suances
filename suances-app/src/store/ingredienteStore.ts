@@ -2,11 +2,17 @@ import { create } from 'zustand';
 import { IngredienteResponse, IngredienteRequest } from '../types/ingrediente';
 import { cartaService } from '../services/cartaService';
 
+interface RecentlyUpdated {
+  ingredienteId: string;
+  timestamp: number;
+}
+
 interface IngredienteState {
   ingredientes: IngredienteResponse[];
   isLoading: boolean;
   stockBajoAlertas: IngredienteResponse[];
   stockCriticoAlertas: IngredienteResponse[];
+  recentlyUpdated: RecentlyUpdated[];
   fetchIngredientes: (activo?: boolean) => Promise<void>;
   addIngrediente: (ingrediente: IngredienteResponse) => void;
   updateIngrediente: (ingrediente: IngredienteResponse) => void;
@@ -21,6 +27,8 @@ interface IngredienteState {
     umbralAlerta?: number;
     tipoAlerta?: 'STOCK_BAJO' | 'STOCK_CRITICO';
   }) => void;
+  recargarInventario: () => Promise<void>;
+  clearRecentlyUpdated: (ingredienteId: string) => void;
 }
 
 export const useIngredienteStore = create<IngredienteState>((set, get) => ({
@@ -28,6 +36,7 @@ export const useIngredienteStore = create<IngredienteState>((set, get) => ({
   isLoading: false,
   stockBajoAlertas: [],
   stockCriticoAlertas: [],
+  recentlyUpdated: [],
 
   fetchIngredientes: async (activo: boolean = true) => {
     set({ isLoading: true });
@@ -92,12 +101,9 @@ export const useIngredienteStore = create<IngredienteState>((set, get) => ({
   },
 
   updateIngredienteFromSSE: (data) => {
-    console.log('[ingredienteStore] Actualizando ingrediente desde SSE:', data);
-    
     set((state) => {
       const ingrediente = state.ingredientes.find(i => i.id === data.ingredienteId);
       if (!ingrediente) {
-        console.log('[ingredienteStore] Ingrediente no encontrado:', data.ingredienteId);
         return state;
       }
 
@@ -111,12 +117,19 @@ export const useIngredienteStore = create<IngredienteState>((set, get) => ({
         ...(data.umbralAlerta !== undefined && { umbralAlerta: data.umbralAlerta }),
       };
 
-      console.log('[ingredienteStore] Ingrediente actualizado:', updatedIngrediente.nombre);
-
       // Actualizar ingredientes
       const updatedIngredientes = state.ingredientes.map((i) =>
         i.id === data.ingredienteId ? updatedIngrediente : i
       );
+
+      // Agregar a recentlyUpdated si el stock cambió
+      let newRecentlyUpdated = state.recentlyUpdated;
+      if (data.stockActual !== undefined && data.stockActual !== ingrediente.stockActual) {
+        newRecentlyUpdated = [
+          ...state.recentlyUpdated.filter(r => r.ingredienteId !== data.ingredienteId),
+          { ingredienteId: data.ingredienteId, timestamp: Date.now() }
+        ];
+      }
 
       // Manejar alertas basado en el stock
       let newStockBajoAlertas = [...state.stockBajoAlertas];
@@ -128,10 +141,8 @@ export const useIngredienteStore = create<IngredienteState>((set, get) => ({
 
       // Agregar a la alerta apropiada
       if (stockActual <= 0 || data.tipoAlerta === 'STOCK_CRITICO') {
-        console.log('[ingredienteStore] Agregando a alertas críticas:', updatedIngrediente.nombre);
         newStockCriticoAlertas.push(updatedIngrediente);
       } else if ((stockActual < umbralAlerta) || data.tipoAlerta === 'STOCK_BAJO') {
-        console.log('[ingredienteStore] Agregando a alertas de stock bajo:', updatedIngrediente.nombre);
         newStockBajoAlertas.push(updatedIngrediente);
       }
 
@@ -139,7 +150,19 @@ export const useIngredienteStore = create<IngredienteState>((set, get) => ({
         ingredientes: updatedIngredientes,
         stockBajoAlertas: newStockBajoAlertas,
         stockCriticoAlertas: newStockCriticoAlertas,
+        recentlyUpdated: newRecentlyUpdated,
       };
     });
+  },
+
+  clearRecentlyUpdated: (ingredienteId: string) => {
+    set((state) => ({
+      recentlyUpdated: state.recentlyUpdated.filter(r => r.ingredienteId !== ingredienteId)
+    }));
+  },
+
+  recargarInventario: async () => {
+    const { fetchIngredientes } = get();
+    await fetchIngredientes(true);
   },
 }));

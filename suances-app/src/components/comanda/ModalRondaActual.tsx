@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,16 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  Alert,
+  Animated,
+  StatusBar,
+  Vibration,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { useRondaPersistencia } from '../../hooks/useRondaPersistencia';
 import { SelectorPlatosSimple } from './SelectorPlatosSimple';
+import { CustomAlert } from '../common';
 import { useSalaStore } from '../../store/salaStore';
 import type { PlatoRondaItem, TipoRonda } from '../../types/sala';
 import type { PlatoOperativo } from '../../types/carta';
@@ -33,6 +36,15 @@ const TIPOS_RONDA: { tipo: TipoRonda; label: string }[] = [
   { tipo: 'POSTRE', label: 'Postres' },
   { tipo: 'SIN_ORDEN', label: 'Sin orden' },
 ];
+
+type AlertButtonConfig = {
+  text?: string;
+  icon?: string;
+  iconColor?: string;
+  iconSize?: number;
+  onPress?: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+};
 
 // Generar UUID simple
 const generateUUID = () => {
@@ -55,7 +67,22 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
   const [showSelector, setShowSelector] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [cargandoInicial, setCargandoInicial] = useState(true);
+  const insets = useSafeAreaInsets();
   
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+    buttons: AlertButtonConfig[];
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+    buttons: [{ text: 'OK' }],
+  });
+   
   const { guardar, cargar, limpiar } = useRondaPersistencia();
   const { crearYEnviarACocina, crearNuevaRonda } = useSalaStore();
   const prevPlatosRef = useRef<string>('');
@@ -106,6 +133,49 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
     // No cerramos el selector, seguimos añadiendo
   }, []);
 
+  // Función para quitar una unidad de un plato (usada en long press)
+  const handleQuitarUnPlato = useCallback((platoId: string) => {
+    setPlatos((prevPlatos) => {
+      // Encontrar el último plato con ese platoId
+      let lastIndex = -1;
+      for (let i = prevPlatos.length - 1; i >= 0; i--) {
+        if (prevPlatos[i].platoId === platoId) {
+          lastIndex = i;
+          break;
+        }
+      }
+      
+      if (lastIndex === -1) return prevPlatos;
+      
+      const plato = prevPlatos[lastIndex];
+      let newPlatos;
+      
+      if (plato.cantidad > 1) {
+        // Reducir cantidad en 1
+        newPlatos = prevPlatos.map((p, idx) => 
+          idx === lastIndex ? { ...p, cantidad: p.cantidad - 1 } : p
+        );
+      } else {
+        // Eliminar el plato completamente
+        newPlatos = prevPlatos.filter((_, idx) => idx !== lastIndex);
+      }
+      
+      // Actualizar referencia inmediatamente
+      prevPlatosRef.current = JSON.stringify(newPlatos);
+      
+      return newPlatos;
+    });
+    
+    // Actualizar seleccionados en el siguiente ciclo
+    setTimeout(() => {
+      setSeleccionados((prev) => {
+        const currentPlatos = platos;
+        const platoIds = new Set(currentPlatos.map(p => p.id));
+        return prev.filter(id => platoIds.has(id));
+      });
+    }, 0);
+  }, []);
+
   const handleEliminarPlato = useCallback((id: string) => {
     setPlatos((prev) => prev.filter((p) => p.id !== id));
     setSeleccionados((prev) => prev.filter((sid) => sid !== id));
@@ -152,6 +222,244 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
     return platos.reduce((sum, p) => sum + p.precioUnitario * p.cantidad, 0);
   }, [platos]);
 
+  // Ordenar platos: sin marca primero, luego en orden fijo: entrantes, primeros, segundos, postres, bebidas
+  const platosOrdenados = useMemo(() => {
+    // Orden fijo de tipos
+    const ordenTipos = ['ENTRANTE', 'PRIMERO', 'SEGUNDO', 'POSTRE', 'BEBIDA', 'SIN_ORDEN'];
+    
+    // Separar platos con y sin tipo
+    const sinTipo = platos.filter(p => !p.tipoRonda || p.tipoRonda === 'SIN_ORDEN');
+    const conTipo = platos.filter(p => p.tipoRonda && p.tipoRonda !== 'SIN_ORDEN');
+    
+    // Agrupar los que tienen tipo
+    const grupos: Record<string, PlatoRondaItem[]> = {};
+    conTipo.forEach(plato => {
+      const tipo = plato.tipoRonda!;
+      if (!grupos[tipo]) {
+        grupos[tipo] = [];
+      }
+      grupos[tipo].push(plato);
+    });
+    
+    // Concatenar: sin tipo primero + cada grupo de tipo en orden fijo
+    const resultado = [...sinTipo];
+    ordenTipos.forEach(tipo => {
+      if (grupos[tipo]) {
+        resultado.push(...grupos[tipo]);
+      }
+    });
+    
+    return resultado;
+  }, [platos]);
+
+  // Componente botón añadir platos con animación de pulso en el texto
+  const BotonAnadirPlatos: React.FC = () => {
+    const textScale = useRef(new Animated.Value(1)).current;
+    
+    useEffect(() => {
+      if (!showSelector) {
+        // Animación de pulso solo en el texto
+        const pulseAnimation = Animated.loop(
+          Animated.sequence([
+            Animated.timing(textScale, {
+              toValue: 1.15,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+            Animated.timing(textScale, {
+              toValue: 1,
+              duration: 600,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+        pulseAnimation.start();
+        return () => pulseAnimation.stop();
+      } else {
+        // Reset cuando está en modo "volver"
+        textScale.setValue(1);
+      }
+    }, [showSelector, textScale]);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.botonAnadir,
+          showSelector && styles.botonAnadirVolver
+        ]}
+        onPress={() => setShowSelector(!showSelector)}
+        activeOpacity={0.7}
+      >
+        <Ionicons 
+          name={showSelector ? "create-outline" : "add-circle"} 
+          size={20} 
+          color={showSelector ? colors.text : colors.surface} 
+        />
+        <Animated.Text style={[
+          styles.textoAnadir,
+          showSelector && styles.textoAnadirVolver,
+          { transform: [{ scale: textScale }] }
+        ]}>
+          {showSelector ? 'Volver a ronda' : 'Añadir más platos'}
+        </Animated.Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const showAlert = useCallback((
+    title: string,
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error' = 'info',
+    buttons: AlertButtonConfig[] = [{ text: 'OK' }]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      title,
+      message,
+      type,
+      buttons,
+    });
+  }, []);
+
+  const hideAlert = useCallback(() => {
+    setAlertConfig(prev => ({ ...prev, visible: false }));
+  }, []);
+
+  const procesarEnvio = useCallback(async () => {
+    if (platos.length === 0) {
+      showAlert('Error', 'No hay platos para enviar', 'error');
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const itemsParaEnviar = platos.map(plato => ({
+        platoId: plato.platoId,
+        nombrePlato: plato.nombrePlato,
+        cantidad: plato.cantidad,
+        tipoRonda: plato.tipoRonda || 'SIN_ORDEN',
+        numeroRonda: numeroRonda,
+        notas: plato.notas,
+      }));
+
+      console.log('[ModalRondaActual] Enviando items a cocina:', itemsParaEnviar);
+      await crearYEnviarACocina(comandaId, itemsParaEnviar);
+
+      await crearNuevaRonda(comandaId);
+
+      await limpiar(comandaId);
+      setPlatos([]);
+      setSeleccionados([]);
+
+      onClose();
+
+      setTimeout(() => {
+        onRondaEnviada();
+        showAlert('Éxito', `Ronda ${numeroRonda} enviada a cocina`, 'success');
+      }, 300);
+    } catch (error: any) {
+      console.error('[ModalRondaActual] Error enviando:', error);
+      showAlert('Error', error?.message || 'No se pudo enviar a cocina', 'error');
+    } finally {
+      setEnviando(false);
+    }
+  }, [platos, numeroRonda, comandaId, crearYEnviarACocina, crearNuevaRonda, limpiar, onRondaEnviada, onClose, showAlert]);
+
+  const handleMandarACocina = useCallback(() => {
+    showAlert(
+      'Mandar a Cocina',
+      `¿Enviar ${platos.length} platos de la Ronda ${numeroRonda}?`,
+      'info',
+      [
+        {
+          text: 'Enviar',
+          style: 'default',
+          onPress: procesarEnvio,
+        },
+        {
+          icon: 'close',
+          iconColor: colors.textSecondary,
+          iconSize: 22,
+          style: 'cancel',
+        },
+      ]
+    );
+  }, [platos.length, numeroRonda, showAlert, procesarEnvio]);
+
+  // Componente botón enviar a cocina con animación
+  const BotonCocina: React.FC = () => {
+    const shimmerValue = useRef(new Animated.Value(0)).current;
+    const longPressActive = useRef(false);
+
+    useEffect(() => {
+      const shimmerAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerValue, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: true,
+          }),
+          Animated.delay(1000),
+        ])
+      );
+      shimmerAnimation.start();
+      return () => shimmerAnimation.stop();
+    }, [shimmerValue]);
+
+    const shimmerTranslate = shimmerValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-50, 120],
+    });
+
+    // Si está abierto el selector, mostrar botón de volver
+    if (showSelector) {
+      return (
+        <TouchableOpacity
+          style={styles.botonVolverHeader}
+          onPress={() => setShowSelector(false)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-back" size={20} color={colors.surface} />
+          <Text style={styles.textoVolverHeader}>Volver</Text>
+          <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.botonEnviarHeader,
+          (platos.length === 0 || enviando) && styles.botonEnviarHeaderDisabled,
+        ]}
+        onPress={() => {
+          if (longPressActive.current) {
+            longPressActive.current = false;
+            return;
+          }
+          handleMandarACocina();
+        }}
+        delayLongPress={700}
+        onLongPress={() => {
+          Vibration.vibrate(80);
+          longPressActive.current = true;
+          procesarEnvio();
+          setTimeout(() => {
+            longPressActive.current = false;
+          }, 500);
+        }}
+        disabled={platos.length === 0 || enviando}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.textoEnviarHeader}>
+          {enviando ? 'Enviando...' : 'Enviar'}
+        </Text>
+        <Ionicons name="send" size={20} color={colors.surface} />
+        <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
+      </TouchableOpacity>
+    );
+  };
+
   const handleCerrar = useCallback(() => {
     if (platos.length > 0) {
       guardar(comandaId, platos);
@@ -159,69 +467,7 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
     onClose();
   }, [platos, comandaId, guardar, onClose]);
 
-  const handleMandarACocina = useCallback(async () => {
-    if (platos.length === 0) {
-      Alert.alert('Error', 'No hay platos para enviar');
-      return;
-    }
-
-    Alert.alert(
-      'Mandar a Cocina',
-      `¿Enviar ${platos.length} platos de la Ronda ${numeroRonda}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Enviar',
-          onPress: async () => {
-            setEnviando(true);
-            try {
-              // 1. Preparar los items para enviar
-              const itemsParaEnviar = platos.map(plato => ({
-                platoId: plato.platoId,
-                nombrePlato: plato.nombrePlato,
-                cantidad: plato.cantidad,
-                tipoRonda: plato.tipoRonda || 'SIN_ORDEN',
-                numeroRonda: numeroRonda,
-                notas: plato.notas,
-              }));
-
-              console.log('[ModalRondaActual] Enviando items a cocina:', itemsParaEnviar);
-              
-              // 2. Crear y enviar todos los items en una sola llamada
-              await crearYEnviarACocina(comandaId, itemsParaEnviar);
-              console.log('[ModalRondaActual] Items creados y enviados exitosamente');
-
-              // 3. Crear nueva ronda
-              await crearNuevaRonda(comandaId);
-
-              // 4. Limpiar todo
-              await limpiar(comandaId);
-              setPlatos([]);
-              setSeleccionados([]);
-
-              // 5. Cerrar modal PRIMERO
-              onClose();
-
-              // 6. Esperar a que el modal se cierre y luego actualizar
-              setTimeout(() => {
-                // Notificar éxito después de cerrar el modal
-                onRondaEnviada();
-                
-                // Mostrar alerta al final
-                Alert.alert('Éxito', `Ronda ${numeroRonda} enviada a cocina`);
-              }, 300);
-            } catch (error: any) {
-              console.error('[ModalRondaActual] Error enviando:', error);
-              Alert.alert('Error', error?.message || 'No se pudo enviar a cocina');
-            } finally {
-              setEnviando(false);
-            }
-          },
-        },
-      ]
-    );
-  }, [platos, numeroRonda, comandaId, crearYEnviarACocina, crearNuevaRonda, limpiar, onRondaEnviada, onClose]);
-
+  // Función para mostrar alertas personalizadas
   const renderPlato = ({ item }: { item: PlatoRondaItem }) => {
     const isSeleccionado = seleccionados.includes(item.id);
     const tipoLabel = item.tipoRonda
@@ -229,17 +475,18 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
       : null;
 
     return (
-      <View style={styles.platoItem}>
-        <TouchableOpacity
-          style={styles.checkbox}
-          onPress={() => handleToggleSeleccion(item.id)}
-        >
+      <TouchableOpacity 
+        style={[styles.platoItem, isSeleccionado && styles.platoItemSeleccionado]}
+        onPress={() => handleToggleSeleccion(item.id)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.checkbox} pointerEvents="none">
           <Ionicons
             name={isSeleccionado ? 'checkbox' : 'square-outline'}
             size={22}
             color={isSeleccionado ? colors.accent : colors.textSecondary}
           />
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.platoInfo}>
           <Text style={styles.platoNombre}>
@@ -253,26 +500,35 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
         <View style={styles.platoAcciones}>
           <TouchableOpacity
             style={styles.botonCantidad}
-            onPress={() => handleCambiarCantidad(item.id, -1)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleCambiarCantidad(item.id, -1);
+            }}
           >
             <Text style={styles.textoBotonCantidad}>-</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.botonCantidad}
-            onPress={() => handleCambiarCantidad(item.id, 1)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleCambiarCantidad(item.id, 1);
+            }}
           >
             <Text style={styles.textoBotonCantidad}>+</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.botonEliminar}
-            onPress={() => handleEliminarPlato(item.id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleEliminarPlato(item.id);
+            }}
           >
             <Text style={styles.textoEliminar}>×</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -281,8 +537,11 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
       visible={visible}
       animationType="slide"
       onRequestClose={handleCerrar}
+      presentationStyle="fullScreen"
+      statusBarTranslucent
     >
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <View style={[styles.modalContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCerrar} style={styles.headerButton}>
@@ -294,17 +553,42 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
               {platos.length} {platos.length === 1 ? 'plato' : 'platos'}
             </Text>
           </View>
-          {platos.length > 0 && (
-            <TouchableOpacity onPress={handleSeleccionarTodos} style={styles.headerButton}>
-              <Text style={styles.seleccionarTodosTexto}>
-                {seleccionados.length === platos.length ? 'Ninguno' : 'Todos'}
-              </Text>
-            </TouchableOpacity>
+          {platos.length > 0 ? (
+            <BotonCocina />
+          ) : (
+            <View style={styles.headerButton} />
           )}
         </View>
 
-        {/* Lista de platos */}
-        {platos.length === 0 ? (
+        {/* Botón seleccionar todos */}
+        {platos.length > 0 && (
+          <View style={styles.seleccionarTodosContainer}>
+            <Text style={styles.seleccionarTodosText}>
+              {seleccionados.length} de {platos.length} seleccionados
+            </Text>
+            <TouchableOpacity 
+              style={styles.seleccionarTodosButton}
+              onPress={handleSeleccionarTodos}
+            >
+              <Text style={styles.seleccionarTodosButtonText}>
+                {seleccionados.length === platos.length ? 'Ninguno' : 'Todos'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Contenido: Selector de platos o Lista de platos */}
+        {showSelector ? (
+          <View style={styles.selectorContainer}>
+          <SelectorPlatosSimple
+            visible={showSelector}
+            onClose={() => setShowSelector(false)}
+            onSeleccionarPlato={handleAgregarPlato}
+            onQuitarPlato={handleQuitarUnPlato}
+            platosEnRonda={platos}
+          />
+          </View>
+        ) : platos.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="restaurant-outline" size={48} color={colors.textSecondary} />
             <Text style={styles.emptyText}>No hay platos añadidos</Text>
@@ -314,7 +598,7 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
           </View>
         ) : (
           <FlatList
-            data={platos}
+            data={platosOrdenados}
             renderItem={renderPlato}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
@@ -322,11 +606,11 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
           />
         )}
 
-        {/* Botones de tipo (solo si hay seleccionados) */}
-        {seleccionados.length > 0 && (
+        {/* Botones de tipo - Grid 3x2 (solo si hay seleccionados) */}
+        {seleccionados.length > 0 ? (
           <View style={styles.tiposContainer}>
             <Text style={styles.tiposLabel}>Marcar seleccionados como:</Text>
-            <View style={styles.tiposRow}>
+            <View style={styles.tiposGrid}>
               {TIPOS_RONDA.map((tipo) => (
                 <TouchableOpacity
                   key={tipo.tipo}
@@ -338,52 +622,36 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
               ))}
             </View>
           </View>
+        ) : (
+          <View style={styles.ayudaContainer}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
+            <Text style={styles.ayudaTexto}>Selecciona platos para marcar</Text>
+          </View>
         )}
 
-        {/* Botón añadir platos */}
-        <TouchableOpacity
-          style={styles.botonAnadir}
-          onPress={() => setShowSelector(true)}
-        >
-          <Ionicons name="add-circle-outline" size={20} color={colors.accent} />
-          <Text style={styles.textoAnadir}>Añadir más platos</Text>
-        </TouchableOpacity>
+        {/* Botón toggle añadir/volver platos con animación */}
+        <BotonAnadirPlatos />
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalLabel}>Total estimado:</Text>
-            <Text style={styles.totalValor}>{calcularTotal().toFixed(2)} €</Text>
-          </View>
+        {/* Alerta personalizada */}
+        <CustomAlert
+          visible={alertConfig.visible}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          buttons={alertConfig.buttons}
+          onDismiss={hideAlert}
+        />
 
-          <TouchableOpacity
-            style={[
-              styles.botonEnviar,
-              (platos.length === 0 || enviando) && styles.botonEnviarDisabled,
-            ]}
-            onPress={handleMandarACocina}
-            disabled={platos.length === 0 || enviando}
-          >
-            <Text style={styles.textoEnviar}>
-              {enviando ? 'Enviando...' : `Mandar a Cocina (${platos.length})`}
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.surface} />
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-
-      {/* Selector de platos */}
-      <SelectorPlatosSimple
-        visible={showSelector}
-        onClose={() => setShowSelector(false)}
-        onSeleccionarPlato={handleAgregarPlato}
-        platosEnRonda={platos.length}
-      />
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -399,6 +667,57 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: spacing.xs,
   },
+  botonEnviarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    overflow: 'hidden',
+    position: 'relative',
+    minWidth: 100,
+  },
+  botonEnviarHeaderDisabled: {
+    backgroundColor: colors.textSecondary,
+    opacity: 0.5,
+  },
+  textoEnviarHeader: {
+    ...typography.body,
+    color: colors.surface,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  botonVolverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    overflow: 'hidden',
+    position: 'relative',
+    minWidth: 100,
+  },
+  textoVolverHeader: {
+    ...typography.body,
+    color: colors.surface,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    transform: [{ skewX: '-20deg' }],
+  },
   headerContent: {
     flex: 1,
     marginHorizontal: spacing.md,
@@ -412,11 +731,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
-  seleccionarTodosTexto: {
-    ...typography.bodySmall,
-    color: colors.accent,
-    fontWeight: '600',
-  },
+
   listContent: {
     paddingBottom: spacing.md,
   },
@@ -445,6 +760,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  platoItemSeleccionado: {
+    backgroundColor: colors.accent + '15', // 15 es ~8% de opacidad en hex
   },
   checkbox: {
     marginRight: spacing.sm,
@@ -496,6 +814,43 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.error,
   },
+  seleccionarTodosContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  seleccionarTodosText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
+  seleccionarTodosButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+  },
+  seleccionarTodosButtonText: {
+    ...typography.bodySmall,
+    color: colors.accent,
+    fontWeight: '600',
+  },
+  ayudaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  ayudaTexto: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+  },
   tiposContainer: {
     padding: spacing.md,
     backgroundColor: colors.surface,
@@ -505,81 +860,62 @@ const styles = StyleSheet.create({
   tiposLabel: {
     ...typography.bodySmall,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
-  tiposRow: {
+  tiposGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   botonTipo: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: '30%',
+    paddingVertical: spacing.md,
+    backgroundColor: colors.accent,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   textoTipo: {
     ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '500',
+    color: colors.surface,
+    fontWeight: '600',
   },
   botonAnadir: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
+    paddingVertical: 16,
+    backgroundColor: colors.accent,
+    marginTop: spacing.xs,
+    borderRadius: 0,
+    gap: spacing.xs,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  botonAnadirVolver: {
     backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
   },
   textoAnadir: {
     ...typography.body,
-    color: colors.accent,
-    fontWeight: '600',
+    color: colors.surface,
+    fontWeight: '700',
+    fontSize: 16,
     marginLeft: spacing.sm,
   },
-  footer: {
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  totalLabel: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  totalValor: {
-    ...typography.h3,
+  textoAnadirVolver: {
     color: colors.text,
-    fontWeight: '700',
   },
-  botonEnviar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  botonEnviarDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.5,
-  },
-  textoEnviar: {
-    ...typography.body,
-    color: colors.surface,
-    fontWeight: '600',
-    fontSize: 16,
+  selectorContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
 });

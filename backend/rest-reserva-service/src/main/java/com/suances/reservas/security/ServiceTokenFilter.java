@@ -35,7 +35,8 @@ public class ServiceTokenFilter extends OncePerRequestFilter {
         // Solo aplicar a endpoints de servicio internos
         boolean isServiceEndpoint = requestUri.startsWith("/api/reservas/mesas/estado-diario") ||
                                     requestUri.startsWith("/api/reservas/franjas") ||
-                                    requestUri.startsWith("/api/reservas/salas");
+                                    requestUri.startsWith("/api/reservas/salas") ||
+                                    requestUri.equals("/api/reservas/reservas/comanda");
         
         if (!isServiceEndpoint) {
             filterChain.doFilter(request, response);

@@ -1,11 +1,15 @@
 package com.suances.sala.service;
 
+import com.suances.sala.client.ReservasRestClient;
+import com.suances.sala.client.dto.ComandaReservaRequest;
 import com.suances.sala.domain.dto.request.ComandaRequest;
 import com.suances.sala.domain.dto.response.ComandaDetalleRondasResponse;
+import com.suances.sala.domain.dto.response.ComandaHoyResponse;
 import com.suances.sala.domain.dto.response.ComandaResponse;
 import com.suances.sala.domain.dto.response.MesaOperativaResponse;
 import com.suances.sala.domain.model.Comanda;
 import com.suances.sala.domain.model.ItemComanda;
+import com.suances.sala.domain.model.MesaOperativa;
 import com.suances.sala.domain.model.enums.ComandaEstado;
 import com.suances.sala.domain.model.enums.TipoRonda;
 import com.suances.sala.event.SalaEventProducer;
@@ -14,6 +18,7 @@ import com.suances.sala.exception.BusinessRuleException;
 import com.suances.sala.exception.ResourceNotFoundException;
 import com.suances.sala.repository.ComandaRepository;
 import com.suances.sala.repository.ItemComandaRepository;
+import com.suances.sala.repository.MesaOperativaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -34,19 +39,25 @@ public class ComandaService {
     private final ComandaRepository comandaRepository;
     private final ItemComandaRepository itemComandaRepository;
     private final MesaOperativaService mesaOperativaService;
+    private final MesaOperativaRepository mesaOperativaRepository;
     private final SalaEventProducer eventProducer;
     private final SseEmitterManager sseEmitterManager;
+    private final ReservasRestClient reservasRestClient;
 
     public ComandaService(ComandaRepository comandaRepository,
                           ItemComandaRepository itemComandaRepository,
                           MesaOperativaService mesaOperativaService,
+                          MesaOperativaRepository mesaOperativaRepository,
                           SalaEventProducer eventProducer,
-                          SseEmitterManager sseEmitterManager) {
+                          SseEmitterManager sseEmitterManager,
+                          ReservasRestClient reservasRestClient) {
         this.comandaRepository = comandaRepository;
         this.itemComandaRepository = itemComandaRepository;
         this.mesaOperativaService = mesaOperativaService;
+        this.mesaOperativaRepository = mesaOperativaRepository;
         this.eventProducer = eventProducer;
         this.sseEmitterManager = sseEmitterManager;
+        this.reservasRestClient = reservasRestClient;
     }
 
     @Transactional
@@ -97,6 +108,29 @@ public class ComandaService {
         
         // Publicar evento a Redis
         eventProducer.publicarComandaAbierta(saved);
+        
+        // Crear reserva en el servicio de reservas
+        try {
+            MesaOperativa mesa = mesaOperativaRepository.findById(request.mesaId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Mesa no encontrada: " + request.mesaId()));
+            
+            ComandaReservaRequest reservaRequest = new ComandaReservaRequest(
+                    request.mesaId(),
+                    mesa.getSalaId(),
+                    request.camareroNombre(),
+                    request.numeroComensales().shortValue()
+            );
+            
+            var reservaResponse = reservasRestClient.crearReservaDesdeComanda(reservaRequest);
+            if (reservaResponse != null) {
+                log.info("Reserva creada exitosamente desde comanda: codigo={}", reservaResponse.codigo());
+            } else {
+                log.warn("No se pudo crear la reserva desde la comanda, pero la comanda se creó correctamente");
+            }
+        } catch (Exception e) {
+            log.error("Error al crear reserva desde comanda, pero la comanda se creó correctamente: {}", e.getMessage());
+            // No lanzamos la excepción para no interrumpir la creación de la comanda
+        }
         
         return mapToResponse(saved);
     }
@@ -228,6 +262,49 @@ public class ComandaService {
     public Page<ComandaResponse> listarComandasPorEstado(ComandaEstado estado, Pageable pageable) {
         return comandaRepository.findByEstado(estado, pageable)
                 .map(this::mapToResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ComandaHoyResponse> listarComandasHoy() {
+        // Obtener inicio y fin del día actual
+        OffsetDateTime inicioDia = OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        OffsetDateTime finDia = OffsetDateTime.now().withHour(23).withMinute(59).withSecond(59).withNano(999999999);
+        
+        // Buscar comandas del día ordenadas por fecha de actualización (más recientes primero)
+        List<Comanda> comandas = comandaRepository.findByFechaAperturaBetweenOrderByUpdatedAtDesc(inicioDia, finDia);
+        
+        return comandas.stream()
+                .map(this::mapToHoyResponse)
+                .collect(Collectors.toList());
+    }
+
+    private ComandaHoyResponse mapToHoyResponse(Comanda comanda) {
+        // Obtener número de mesa
+        Integer mesaNumero = null;
+        String nombreSala = null;
+        try {
+            MesaOperativaResponse mesa = mesaOperativaService.obtenerMesa(comanda.getMesaId());
+            mesaNumero = mesa.numero();
+            nombreSala = mesa.nombreSala();
+        } catch (Exception e) {
+            log.warn("No se pudo obtener información de mesa para comanda {}", comanda.getId());
+        }
+
+        return new ComandaHoyResponse(
+                comanda.getId(),
+                comanda.getCodigo(),
+                mesaNumero,
+                nombreSala,
+                comanda.getCamareroNombre(),
+                comanda.getEstado(),
+                comanda.getNumeroComensales(),
+                comanda.getTotal(),
+                comanda.getDescuentoPorcentaje(),
+                comanda.getFechaApertura(),
+                comanda.getUpdatedAt(),
+                comanda.getFechaCierre(),
+                comanda.getNotas()
+        );
     }
 
     @Transactional

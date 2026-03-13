@@ -1,12 +1,12 @@
 import React from 'react';
-import { useCartaEvents } from '../hooks/useCartaEvents';
+import { useCartaSSE } from '../hooks/useCartaSSE';
 
 interface Props {
   children: React.ReactNode;
 }
 
 export const CartaEventsProvider: React.FC<Props> = ({ children }) => {
-  useCartaEvents({
+  useCartaSSE({
     enabled: true,
   });
 

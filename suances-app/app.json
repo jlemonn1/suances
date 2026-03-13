@@ -30,11 +30,16 @@
       [
         "expo-font",
         {
-          "fonts": [
-            "@expo/vector-icons/Ionicons.ttf"
-          ]
+      "fonts": [
+        "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+      ]
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3aec193a-fcee-4203-a33e-c361443383b2"
+      }
+    }
   }
 }

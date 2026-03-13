@@ -49,7 +49,7 @@ public class CuentaService {
     }
 
     @Transactional
-    public Comanda cerrarCuenta(UUID comandaId) {
+    public TicketCobroResponse cerrarCuenta(UUID comandaId) {
         Comanda comanda = comandaRepository.findById(comandaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
 
@@ -73,11 +73,28 @@ public class CuentaService {
         comanda.setEstado(ComandaEstado.CUENTA);
         Comanda saved = comandaRepository.save(comanda);
 
+        // Actualizar mesa a estado CUENTA
+        mesaOperativaService.actualizarEstadoMesa(
+            comanda.getMesaId(), 
+            com.suances.sala.domain.model.enums.MesaEstadoOperativo.CUENTA, 
+            saved.getId()
+        );
+
+        // Emitir evento SSE para actualizar estado de mesa en tiempo real
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("mesaId", comanda.getMesaId());
+        eventData.put("estado", "CUENTA");
+        eventData.put("comandaId", comanda.getId());
+        eventData.put("codigo", saved.getCodigo());
+        eventData.put("timestamp", OffsetDateTime.now().toString());
+        sseEmitterManager.broadcast("mesa.estado_cambiado", eventData);
+        log.info("[SSE] Emitido mesa.estado_cambiado para mesa {} - CUENTA", comanda.getMesaId());
+
         // Generar y publicar ticket de cobro
         TicketCobroResponse ticket = generarTicketCobro(saved);
         eventProducer.publicarCuentaCerrada(saved, ticket);
 
-        return saved;
+        return ticket;
     }
 
     @Transactional
@@ -246,5 +263,247 @@ public class CuentaService {
         }
 
         return montoRecibido.subtract(comanda.getTotal());
+    }
+
+    @Transactional
+    public TicketCobroResponse cancelarCuentaCerrada(UUID comandaId, String motivo, String usuarioNombre) {
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        // Validar que esté en estado CUENTA
+        if (comanda.getEstado() != ComandaEstado.CUENTA) {
+            throw new BusinessRuleException("Solo se pueden cancelar comandas en estado CUENTA");
+        }
+
+        // Guardar total anterior para el ticket
+        BigDecimal totalAnterior = comanda.getTotal();
+
+        // Obtener todos los items no cancelados para el ticket
+        List<ItemComanda> itemsActuales = itemComandaRepository.findByComandaIdAndEstadoNot(
+                comanda.getId(), ItemComanda.ItemEstado.CANCELADO);
+
+        // Cancelar todos los items
+        for (ItemComanda item : itemsActuales) {
+            item.setEstado(ItemComanda.ItemEstado.CANCELADO);
+            itemComandaRepository.save(item);
+        }
+
+        // Cambiar estado de comanda a CANCELADA
+        comanda.setEstado(ComandaEstado.CANCELADA);
+        comanda.setFechaCierre(OffsetDateTime.now());
+        comanda.setTotal(BigDecimal.ZERO);
+        comanda.setNotas((comanda.getNotas() != null ? comanda.getNotas() + " | " : "") + 
+                "Cancelada: " + motivo + " por " + usuarioNombre);
+        
+        Comanda saved = comandaRepository.save(comanda);
+
+        // Liberar mesa
+        mesaOperativaService.actualizarEstadoMesa(
+            comanda.getMesaId(), 
+            com.suances.sala.domain.model.enums.MesaEstadoOperativo.LIBRE, 
+            null
+        );
+
+        // Emitir evento SSE
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("mesaId", comanda.getMesaId());
+        eventData.put("estado", "LIBRE");
+        eventData.put("timestamp", OffsetDateTime.now().toString());
+        sseEmitterManager.broadcast("mesa.estado_cambiado", eventData);
+        log.info("[SSE] Mesa liberada tras cancelación: {}", comanda.getMesaId());
+
+        // Generar ticket de cancelación
+        return generarTicketCancelacion(saved, itemsActuales, motivo, usuarioNombre, totalAnterior);
+    }
+
+    @Transactional
+    public TicketCobroResponse modificarLineasCuentaCerrada(UUID comandaId, List<UUID> itemIds, String motivo) {
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        // Validar que esté en estado CUENTA
+        if (comanda.getEstado() != ComandaEstado.CUENTA) {
+            throw new BusinessRuleException("Solo se pueden modificar comandas en estado CUENTA");
+        }
+
+        // Guardar total anterior
+        BigDecimal totalAnterior = comanda.getTotal();
+
+        // Obtener items a eliminar
+        List<ItemComanda> itemsEliminados = new ArrayList<>();
+        for (UUID itemId : itemIds) {
+            ItemComanda item = itemComandaRepository.findById(itemId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Item no encontrado: " + itemId));
+            
+            if (item.getComandaId().equals(comandaId) && item.getEstado() != ItemComanda.ItemEstado.CANCELADO) {
+                item.setEstado(ItemComanda.ItemEstado.CANCELADO);
+                itemComandaRepository.save(item);
+                itemsEliminados.add(item);
+            }
+        }
+
+        if (itemsEliminados.isEmpty()) {
+            throw new BusinessRuleException("No se encontraron items válidos para eliminar");
+        }
+
+        // Recalcular total
+        BigDecimal nuevoTotal = itemComandaService.calcularTotalComanda(comandaId);
+        comanda.setTotal(nuevoTotal);
+        comanda.setNotas((comanda.getNotas() != null ? comanda.getNotas() + " | " : "") + 
+                "Modificación: " + motivo + " - Items eliminados: " + itemsEliminados.size());
+        
+        Comanda saved = comandaRepository.save(comanda);
+
+        // Generar ticket de corrección
+        return generarTicketCorreccion(saved, itemsEliminados, motivo, totalAnterior);
+    }
+
+    private TicketCobroResponse generarTicketCancelacion(Comanda comanda, List<ItemComanda> itemsCancelados, 
+            String motivo, String usuarioNombre, BigDecimal totalAnterior) {
+        
+        // Obtener número de mesa
+        Integer mesaNumero = mesaOperativaService.obtenerMesa(comanda.getMesaId()).numero();
+        String camareroNombre = comanda.getCamareroNombre() != null ? comanda.getCamareroNombre() : "Camarero";
+
+        // Convertir items cancelados
+        List<TicketCobroResponse.ItemTicket> itemsTicket = itemsCancelados.stream()
+                .map(item -> new TicketCobroResponse.ItemTicket(
+                        item.getNombrePlato(),
+                        item.getCantidad(),
+                        item.getPrecioUnitario(),
+                        item.getSubtotal(),
+                        item.getNotas()
+                ))
+                .collect(Collectors.toList());
+
+        // Agrupar items cancelados por ronda para el ticket
+        List<TicketCobroResponse.RondaTicket> rondas = itemsCancelados.stream()
+                .collect(Collectors.groupingBy(ItemComanda::getTipoRonda))
+                .entrySet().stream()
+                .map(entry -> {
+                    List<TicketCobroResponse.ItemTicket> itemsRonda = entry.getValue().stream()
+                            .map(item -> new TicketCobroResponse.ItemTicket(
+                                    item.getNombrePlato(),
+                                    item.getCantidad(),
+                                    item.getPrecioUnitario(),
+                                    item.getSubtotal(),
+                                    item.getNotas()
+                            ))
+                            .collect(Collectors.toList());
+                    
+                    BigDecimal subtotalRonda = entry.getValue().stream()
+                            .map(ItemComanda::getSubtotal)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    
+                    return new TicketCobroResponse.RondaTicket(
+                            entry.getKey().name(),
+                            itemsRonda,
+                            subtotalRonda
+                    );
+                })
+                .collect(Collectors.toList());
+
+        BigDecimal subtotal = itemsCancelados.stream()
+                .map(ItemComanda::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new TicketCobroResponse(
+                comanda.getId(),
+                mesaNumero,
+                comanda.getCodigo(),
+                camareroNombre,
+                comanda.getNumeroComensales(),
+                comanda.getFechaApertura(),
+                rondas,
+                subtotal,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO, // Total es 0 tras cancelación
+                "CANCELACION",
+                motivo,
+                usuarioNombre,
+                OffsetDateTime.now(),
+                totalAnterior,
+                itemsTicket
+        );
+    }
+
+    private TicketCobroResponse generarTicketCorreccion(Comanda comanda, List<ItemComanda> itemsEliminados, 
+            String motivo, BigDecimal totalAnterior) {
+        
+        // Obtener número de mesa
+        Integer mesaNumero = mesaOperativaService.obtenerMesa(comanda.getMesaId()).numero();
+        String camareroNombre = comanda.getCamareroNombre() != null ? comanda.getCamareroNombre() : "Camarero";
+
+        // Items eliminados para el ticket
+        List<TicketCobroResponse.ItemTicket> itemsTicket = itemsEliminados.stream()
+                .map(item -> new TicketCobroResponse.ItemTicket(
+                        item.getNombrePlato(),
+                        item.getCantidad(),
+                        item.getPrecioUnitario(),
+                        item.getSubtotal(),
+                        item.getNotas()
+                ))
+                .collect(Collectors.toList());
+
+        // Obtener items restantes (no cancelados)
+        List<ItemComanda> itemsRestantes = itemComandaRepository.findByComandaIdAndEstadoNot(
+                comanda.getId(), ItemComanda.ItemEstado.CANCELADO);
+
+        // Agrupar items restantes por ronda
+        List<TicketCobroResponse.RondaTicket> rondas = itemsRestantes.stream()
+                .collect(Collectors.groupingBy(ItemComanda::getTipoRonda))
+                .entrySet().stream()
+                .map(entry -> {
+                    List<TicketCobroResponse.ItemTicket> itemsRonda = entry.getValue().stream()
+                            .map(item -> new TicketCobroResponse.ItemTicket(
+                                    item.getNombrePlato(),
+                                    item.getCantidad(),
+                                    item.getPrecioUnitario(),
+                                    item.getSubtotal(),
+                                    item.getNotas()
+                            ))
+                            .collect(Collectors.toList());
+                    
+                    BigDecimal subtotalRonda = entry.getValue().stream()
+                            .map(ItemComanda::getSubtotal)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    
+                    return new TicketCobroResponse.RondaTicket(
+                            entry.getKey().name(),
+                            itemsRonda,
+                            subtotalRonda
+                    );
+                })
+                .collect(Collectors.toList());
+
+        BigDecimal subtotal = itemsRestantes.stream()
+                .map(ItemComanda::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal descuentoMonto = BigDecimal.ZERO;
+        if (comanda.getDescuentoPorcentaje().compareTo(BigDecimal.ZERO) > 0) {
+            descuentoMonto = subtotal
+                    .multiply(comanda.getDescuentoPorcentaje())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        return new TicketCobroResponse(
+                comanda.getId(),
+                mesaNumero,
+                comanda.getCodigo(),
+                camareroNombre,
+                comanda.getNumeroComensales(),
+                comanda.getFechaApertura(),
+                rondas,
+                subtotal,
+                descuentoMonto,
+                comanda.getTotal(),
+                "CORRECCION",
+                motivo,
+                null, // Usuario se obtiene del contexto de seguridad si es necesario
+                OffsetDateTime.now(),
+                totalAnterior,
+                itemsTicket
+        );
     }
 }

@@ -1,14 +1,18 @@
 package com.suances.sala.service;
 
 import com.suances.sala.domain.dto.response.MesaOperativaResponse;
+import com.suances.sala.domain.model.Comanda;
 import com.suances.sala.domain.model.FranjaOperativa;
 import com.suances.sala.domain.model.MesaOperativa;
 import com.suances.sala.domain.model.SalaOperativa;
 import com.suances.sala.domain.model.enums.MesaEstadoOperativo;
 import com.suances.sala.exception.ResourceNotFoundException;
+import com.suances.sala.repository.ComandaRepository;
 import com.suances.sala.repository.FranjaOperativaRepository;
 import com.suances.sala.repository.MesaOperativaRepository;
 import com.suances.sala.repository.SalaOperativaRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,16 +25,21 @@ import java.util.UUID;
 @Service
 public class MesaOperativaService {
 
+    private static final Logger log = LoggerFactory.getLogger(MesaOperativaService.class);
+
     private final MesaOperativaRepository mesaOperativaRepository;
     private final SalaOperativaRepository salaOperativaRepository;
     private final FranjaOperativaRepository franjaOperativaRepository;
+    private final ComandaRepository comandaRepository;
 
     public MesaOperativaService(MesaOperativaRepository mesaOperativaRepository,
                                 SalaOperativaRepository salaOperativaRepository,
-                                FranjaOperativaRepository franjaOperativaRepository) {
+                                FranjaOperativaRepository franjaOperativaRepository,
+                                ComandaRepository comandaRepository) {
         this.mesaOperativaRepository = mesaOperativaRepository;
         this.salaOperativaRepository = salaOperativaRepository;
         this.franjaOperativaRepository = franjaOperativaRepository;
+        this.comandaRepository = comandaRepository;
     }
 
     @Transactional
@@ -54,6 +63,9 @@ public class MesaOperativaService {
         MesaOperativa mesa = mesaOperativaRepository.findById(mesaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Mesa no encontrada: " + mesaId));
 
+        log.info("[MesaOperativaService] Actualizando mesa {} de estado {} a estado {}", 
+                mesaId, mesa.getEstadoOperativo(), nuevoEstado);
+
         mesa.setEstadoOperativo(nuevoEstado);
         mesa.setComandaActivaId(comandaId);
 
@@ -62,7 +74,10 @@ public class MesaOperativaService {
             mesa.setComandaActivaId(null);
         }
 
-        mesaOperativaRepository.save(mesa);
+        // Guardar y forzar flush para asegurar que los cambios se persisten inmediatamente
+        MesaOperativa saved = mesaOperativaRepository.saveAndFlush(mesa);
+        log.info("[MesaOperativaService] Mesa {} guardada con estado {} y comanda {}", 
+                saved.getId(), saved.getEstadoOperativo(), saved.getComandaActivaId());
     }
 
     @Transactional
@@ -110,7 +125,12 @@ public class MesaOperativaService {
 
         // Mapear todas las mesas, pero ajustar la info de reserva según la franja
         return mesas.stream()
-                .map(mesa -> mapToResponse(mesa, franjaId))
+                .map(mesa -> {
+                    // Refrescar la entidad para asegurar que tenemos los datos más recientes
+                    MesaOperativa refreshed = mesaOperativaRepository.findById(mesa.getId())
+                            .orElse(mesa);
+                    return mapToResponse(refreshed, franjaId);
+                })
                 .toList();
     }
 
@@ -158,6 +178,18 @@ public class MesaOperativaService {
             fechaReserva = null;
         }
 
+        // Obtener código de comanda si existe
+        String codigoComanda = null;
+        if (mesa.getComandaActivaId() != null) {
+            Optional<Comanda> comandaOpt = comandaRepository.findById(mesa.getComandaActivaId());
+            if (comandaOpt.isPresent()) {
+                codigoComanda = comandaOpt.get().getCodigo();
+            }
+        }
+
+        log.debug("[MesaOperativaService] Mapeando mesa {} - Estado: {}, ComandaActivaId: {}, Codigo: {}",
+                mesa.getNumero(), mesa.getEstadoOperativo(), mesa.getComandaActivaId(), codigoComanda);
+
         return new MesaOperativaResponse(
                 mesa.getId(),
                 mesa.getNumero(),
@@ -166,7 +198,7 @@ public class MesaOperativaService {
                 mesa.getCapacidad(),
                 mesa.getEstadoOperativo(),
                 mesa.getComandaActivaId(),
-                null, // Código de comanda - obtener desde comanda
+                codigoComanda,
                 mesa.getCamareroAsignadoId(),
                 nombreCamarero,
                 reservaActualId,

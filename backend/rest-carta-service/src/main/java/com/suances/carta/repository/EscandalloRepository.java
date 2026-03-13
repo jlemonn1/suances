@@ -13,8 +13,14 @@ import java.util.UUID;
 public interface EscandalloRepository extends JpaRepository<Escandallo, UUID> {
     Optional<Escandallo> findByPlatoId(UUID platoId);
     
-    @Query("SELECT e FROM Escandallo e JOIN FETCH e.detalles d WHERE d.ingrediente.id = :ingredienteId")
-    List<Escandallo> findByIngredienteId(@Param("ingredienteId") UUID ingredienteId);
+    @Query("SELECT DISTINCT e FROM Escandallo e JOIN FETCH e.plato p LEFT JOIN FETCH e.detalles d LEFT JOIN FETCH d.ingrediente WHERE p.id = :platoId")
+    Optional<Escandallo> findByPlatoIdWithDetalles(@Param("platoId") UUID platoId);
+    
+    @Query("SELECT DISTINCT e FROM Escandallo e JOIN FETCH e.plato LEFT JOIN FETCH e.detalles d LEFT JOIN FETCH d.ingrediente")
+    List<Escandallo> findAllWithDetalles();
+    
+    @Query("SELECT DISTINCT e FROM Escandallo e JOIN FETCH e.plato LEFT JOIN FETCH e.detalles d LEFT JOIN FETCH d.ingrediente WHERE d.ingrediente.id = :ingredienteId")
+    List<Escandallo> findByIngredienteIdWithDetalles(@Param("ingredienteId") UUID ingredienteId);
     
     void deleteByPlatoId(UUID platoId);
 }

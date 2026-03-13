@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -20,7 +21,7 @@ import type { TipoPago, CuentaItem } from '../../types/sala';
 const METODOS_PAGO: { label: string; value: TipoPago; icon: keyof typeof Ionicons.glyphMap }[] = [
   { label: 'Efectivo', value: 'EFECTIVO', icon: 'cash-outline' },
   { label: 'Tarjeta', value: 'TARJETA', icon: 'card-outline' },
-  { label: 'Transferencia', value: 'TRANSFERENCIA', icon: 'swap-horizontal-outline' },
+  { label: 'En Mesa', value: 'MESA', icon: 'swap-horizontal-outline' },
 ];
 
 const MONEDAS_SUGERIDAS = [10, 20, 50, 100];
@@ -33,6 +34,7 @@ export const CobroScreen: React.FC = () => {
   const [metodoPago, setMetodoPago] = useState<TipoPago>('TARJETA');
   const [montoRecibido, setMontoRecibido] = useState('');
   const [propina, setPropina] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const {
     comandaActiva,
@@ -65,12 +67,19 @@ export const CobroScreen: React.FC = () => {
   const montoPropina = parseFloat(propina) || 0;
   const cambio = Math.max(0, monto - total);
 
-  const handleCobrar = async () => {
+  const handleCobrar = () => {
     if (metodoPago === 'EFECTIVO' && monto < total) {
       Alert.alert('Error', 'El monto recibido es menor que el total');
       return;
     }
+    
+    // Mostrar modal de confirmación según el método de pago
+    setShowConfirmModal(true);
+  };
 
+  const handleConfirmarPago = async () => {
+    setShowConfirmModal(false);
+    
     try {
       const resultado = await cobrarComanda(comandaId, {
         tipoPago: metodoPago,
@@ -80,7 +89,7 @@ export const CobroScreen: React.FC = () => {
 
       Alert.alert(
         'Cobro completado',
-        `Cambio: ${resultado.cambio.toFixed(2)}€\nPropina: ${resultado.propina.toFixed(2)}€`,
+        `Cambio: ${(resultado.cambio || 0).toFixed(2)}€\nPropina: ${(resultado.propina || 0).toFixed(2)}€`,
         [
           {
             text: 'Aceptar',
@@ -114,21 +123,25 @@ export const CobroScreen: React.FC = () => {
 
         <View style={styles.itemsContainer}>
           <Text style={styles.sectionTitle}>Detalle</Text>
-          {cuenta.items.map((item: CuentaItem, index: number) => (
-            <View key={item.pedidoId || index} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemCantidad}>{item.cantidad}x</Text>
-                <Text style={styles.itemNombre}>{item.nombrePlato}</Text>
+          {cuenta.items && cuenta.items.length > 0 ? (
+            cuenta.items.map((item: CuentaItem, index: number) => (
+              <View key={item.pedidoId || index} style={styles.itemRow}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemCantidad}>{item.cantidad}x</Text>
+                  <Text style={styles.itemNombre}>{item.nombrePlato}</Text>
+                </View>
+                <Text style={styles.itemSubtotal}>{(item.subtotal || 0).toFixed(2)}€</Text>
               </View>
-              <Text style={styles.itemSubtotal}>{item.subtotal.toFixed(2)}€</Text>
-            </View>
-          ))}
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No hay items en la cuenta</Text>
+          )}
         </View>
 
         <View style={styles.totalesContainer}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{cuenta.subtotal.toFixed(2)}€</Text>
+            <Text style={styles.totalValue}>{(cuenta.subtotal || 0).toFixed(2)}€</Text>
           </View>
 
           {cuenta.descuentoPorcentaje > 0 && (
@@ -137,18 +150,18 @@ export const CobroScreen: React.FC = () => {
                 Descuento ({cuenta.descuentoPorcentaje}%)
               </Text>
               <Text style={[styles.totalValue, { color: colors.error }]}>
-                -{cuenta.descuentoMonto.toFixed(2)}€
+                -{(cuenta.descuentoMonto || 0).toFixed(2)}€
               </Text>
             </View>
           )}
 
-          {cuenta.impuestos.monto > 0 && (
+          {cuenta.impuestos?.monto > 0 && (
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>
                 IVA ({cuenta.impuestos.tasa}%)
               </Text>
               <Text style={styles.totalValue}>
-                +{cuenta.impuestos.monto.toFixed(2)}€
+                +{(cuenta.impuestos.monto || 0).toFixed(2)}€
               </Text>
             </View>
           )}
@@ -228,22 +241,20 @@ export const CobroScreen: React.FC = () => {
           </View>
         )}
 
-        {isOwnerOrManager && (
-          <View style={styles.propinaContainer}>
-            <Text style={styles.inputLabel}>Propina (opcional)</Text>
-            <View style={styles.inputRow}>
-              <Text style={styles.inputPrefix}>€</Text>
-              <TextInput
-                style={styles.input}
-                value={propina}
-                onChangeText={setPropina}
-                keyboardType="decimal-pad"
-                placeholder="0.00"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
+        <View style={styles.propinaContainer}>
+          <Text style={styles.inputLabel}>Propina (opcional)</Text>
+          <View style={styles.inputRow}>
+            <Text style={styles.inputPrefix}>€</Text>
+            <TextInput
+              style={styles.input}
+              value={propina}
+              onChangeText={setPropina}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              placeholderTextColor={colors.textSecondary}
+            />
           </View>
-        )}
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -260,6 +271,66 @@ export const CobroScreen: React.FC = () => {
           disabled={metodoPago === 'EFECTIVO' && monto < total}
         />
       </View>
+
+      {/* Modal de Confirmación de Pago */}
+      <Modal
+        visible={showConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirmar Pago</Text>
+            
+            {metodoPago === 'TARJETA' && (
+              <>
+                <Text style={styles.modalText}>Importe a cobrar:</Text>
+                <Text style={styles.modalAmount}>{total.toFixed(2)}€</Text>
+                <Text style={styles.modalHint}>Se procesará el pago con tarjeta</Text>
+              </>
+            )}
+            
+            {metodoPago === 'EFECTIVO' && (
+              <>
+                <Text style={styles.modalText}>Cantidad recibida:</Text>
+                <Text style={styles.modalAmount}>{monto.toFixed(2)}€</Text>
+                <Text style={styles.modalText}>Cambio a devolver:</Text>
+                <Text style={[styles.modalAmount, styles.modalAmountHighlight]}>
+                  {cambio.toFixed(2)}€
+                </Text>
+              </>
+            )}
+            
+            {metodoPago === 'MESA' && (
+              <>
+                <Text style={styles.modalText}>Importe pendiente:</Text>
+                <Text style={styles.modalAmount}>{total.toFixed(2)}€</Text>
+                <Text style={styles.modalHint}>El pago se registrará como "En mesa"</Text>
+              </>
+            )}
+
+            {montoPropina > 0 && (
+              <Text style={styles.modalPropina}>Propina: {montoPropina.toFixed(2)}€</Text>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonCancel]} 
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonConfirm]} 
+                onPress={handleConfirmarPago}
+              >
+                <Text style={styles.modalButtonTextConfirm}>Confirmar Pago</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -487,5 +558,83 @@ const styles = StyleSheet.create({
   footerTotalValue: {
     ...typography.h1,
     color: colors.success,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    width: '80%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    ...typography.h2,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  modalText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  modalAmount: {
+    ...typography.h1,
+    color: colors.primary,
+    marginBottom: spacing.md,
+  },
+  modalAmountHighlight: {
+    color: colors.success,
+  },
+  modalHint: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: spacing.md,
+  },
+  modalPropina: {
+    ...typography.body,
+    color: colors.accent,
+    marginBottom: spacing.md,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalButtonConfirm: {
+    backgroundColor: colors.success,
+  },
+  modalButtonTextCancel: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  modalButtonTextConfirm: {
+    ...typography.body,
+    color: colors.surface,
+    fontWeight: '600',
   },
 });

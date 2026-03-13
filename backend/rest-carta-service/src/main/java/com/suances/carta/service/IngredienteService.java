@@ -1,6 +1,8 @@
 package com.suances.carta.service;
 
+import com.suances.carta.consumer.EventConsumer;
 import com.suances.carta.domain.model.Categoria;
+import org.springframework.context.annotation.Lazy;
 import com.suances.carta.domain.model.Distribuidor;
 import com.suances.carta.domain.model.Escandallo;
 import com.suances.carta.domain.model.EscandalloDetalle;
@@ -35,19 +37,22 @@ public class IngredienteService {
     private final CategoriaRepository categoriaRepository;
     private final EventProducer eventProducer;
     private final SseEmitterManager sseEmitterManager;
+    private final EventConsumer eventConsumer;
 
     public IngredienteService(IngredienteRepository ingredienteRepository,
             DistribuidorRepository distribuidorRepository,
             EscandalloRepository escandalloRepository,
             CategoriaRepository categoriaRepository,
             EventProducer eventProducer,
-            SseEmitterManager sseEmitterManager) {
+            SseEmitterManager sseEmitterManager,
+            @Lazy EventConsumer eventConsumer) {
         this.ingredienteRepository = ingredienteRepository;
         this.distribuidorRepository = distribuidorRepository;
         this.escandalloRepository = escandalloRepository;
         this.categoriaRepository = categoriaRepository;
         this.eventProducer = eventProducer;
         this.sseEmitterManager = sseEmitterManager;
+        this.eventConsumer = eventConsumer;
     }
 
     @Transactional
@@ -227,7 +232,7 @@ public class IngredienteService {
 
     @Transactional
     public void recalcularPorIngrediente(UUID ingredienteId) {
-        List<Escandallo> escandallos = escandalloRepository.findByIngredienteId(ingredienteId);
+        List<Escandallo> escandallos = escandalloRepository.findByIngredienteIdWithDetalles(ingredienteId);
 
         for (Escandallo escandallo : escandallos) {
             BigDecimal nuevoCoste = BigDecimal.ZERO;
@@ -385,10 +390,18 @@ public class IngredienteService {
 
         boolean stockRecuperado = ingrediente.getStockActual().compareTo(ingrediente.getUmbralAlerta()) >= 0;
 
+        logger.info("[CARTA-STOCK] resetearAlertaSiStockSuficiente - ingrediente: {}, stockActual: {}, umbralAlerta: {}, stockRecuperado: {}, alertaEnviada: {}", 
+                ingrediente.getNombre(), ingrediente.getStockActual(), ingrediente.getUmbralAlerta(), stockRecuperado, ingrediente.getAlertaEnviada());
+
         if (stockRecuperado && Boolean.TRUE.equals(ingrediente.getAlertaEnviada())) {
             ingrediente.setAlertaEnviada(false);
             ingredienteRepository.save(ingrediente);
             publicarEventoStockRecuperado(ingrediente);
+            
+            // Notificar a sala-service sobre los platos recuperados
+            logger.info("[CARTA-STOCK] Stock recuperado para {}, llamando a calcularYNotificarPlatosStockRecuperado", ingrediente.getNombre());
+            eventConsumer.calcularYNotificarPlatosStockRecuperado(ingredienteId);
+            
             return true;
         }
 

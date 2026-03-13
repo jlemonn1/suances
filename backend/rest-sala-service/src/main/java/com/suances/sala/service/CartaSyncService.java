@@ -284,6 +284,8 @@ public class CartaSyncService {
         for (CartaPlatoOperativo plato : platos) {
             BigDecimal stockCalculado = calcularStockPlato(plato.getPlatoId());
             plato.setStockDisponible(stockCalculado);
+            boolean stockBajo = !obtenerIngredientesBajosPlato(plato.getPlatoId()).isEmpty();
+            plato.setStockBajo(stockBajo);
             platoRepository.save(plato);
         }
 
@@ -375,6 +377,8 @@ public class CartaSyncService {
                 CartaPlatoOperativo plato = platoOpt.get();
                 BigDecimal stockCalculado = calcularStockPlato(plato.getPlatoId());
                 plato.setStockDisponible(stockCalculado);
+                boolean stockBajo = !obtenerIngredientesBajosPlato(plato.getPlatoId()).isEmpty();
+                plato.setStockBajo(stockBajo);
                 platoRepository.save(plato);
             }
         }
@@ -428,6 +432,23 @@ public class CartaSyncService {
     
     public List<CartaPlatoIngredienteOperativo> obtenerIngredientesPlato(UUID platoId) {
         return platoIngredienteRepository.findByPlatoIdOrderByIngredienteOrdenAsc(platoId);
+    }
+    
+    public List<CartaIngredienteOperativo> obtenerIngredientesBajosPlato(UUID platoId) {
+        List<CartaPlatoIngredienteOperativo> ingredientesPlato = platoIngredienteRepository.findByPlatoIdOrderByIngredienteOrdenAsc(platoId);
+        List<String> nombresIngredientes = ingredientesPlato.stream()
+                .map(CartaPlatoIngredienteOperativo::getIngredienteNombre)
+                .collect(Collectors.toList());
+        
+        if (nombresIngredientes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        return ingredienteRepository.findAll().stream()
+                .filter(i -> nombresIngredientes.contains(i.getNombre()))
+                .filter(i -> i.getStockActual() != null && i.getUmbralAlerta() != null 
+                        && i.getStockActual().compareTo(i.getUmbralAlerta()) <= 0)
+                .collect(Collectors.toList());
     }
     
     public List<CartaPlatoOperativo> obtenerPlatosPorTipoCarta(UUID tipoCartaId) {
@@ -506,16 +527,25 @@ public class CartaSyncService {
                     stockAnterior.compareTo(stockNuevo) != 0) {
                     
                     plato.setStockDisponible(stockNuevo);
+                    boolean stockBajo = !obtenerIngredientesBajosPlato(plato.getPlatoId()).isEmpty();
+                    plato.setStockBajo(stockBajo);
                     platoRepository.save(plato);
                     
-                    boolean stockBajo = stockNuevo != null && 
-                        stockNuevo.compareTo(new BigDecimal(5)) <= 0;
-                    
+                    List<CartaIngredienteOperativo> ingredientesBajos = obtenerIngredientesBajosPlato(plato.getPlatoId());
                     Map<String, Object> eventData = new HashMap<>();
                     eventData.put("platoId", plato.getPlatoId());
                     eventData.put("nombre", plato.getNombre());
                     eventData.put("stockDisponible", stockNuevo);
                     eventData.put("stockBajo", stockBajo);
+                    eventData.put("ingredientesBajos", ingredientesBajos.stream()
+                            .map(i -> Map.of(
+                                    "ingredienteId", i.getIngredienteId(),
+                                    "nombre", i.getNombre(),
+                                    "stockActual", i.getStockActual(),
+                                    "umbralAlerta", i.getUmbralAlerta(),
+                                    "unidadMedida", i.getUnidadMedida() != null ? i.getUnidadMedida().name() : null
+                            ))
+                            .collect(Collectors.toList()));
                     eventData.put("tipo", "STOCK_UPDATED");
                     
                     sseEmitterManager.broadcast("carta.plato_stock_changed", eventData);
@@ -602,5 +632,38 @@ public class CartaSyncService {
             log.info("[SSE] Emitido carta.tipo_carta_updated para agregar plato {} a tipo {}", 
                 platoId, tipoCartaId);
         }
+    }
+
+    @Transactional
+    public void actualizarStockBajoPlato(UUID platoId, Boolean stockBajo) {
+        Optional<CartaPlatoOperativo> platoOpt = platoRepository.findByPlatoId(platoId);
+        
+        if (platoOpt.isPresent()) {
+            CartaPlatoOperativo plato = platoOpt.get();
+            plato.setStockBajo(stockBajo);
+            platoRepository.save(plato);
+            log.info("Stock bajo de plato actualizado: {} - stockBajo: {}", plato.getNombre(), stockBajo);
+        } else {
+            log.warn("No se encontró plato operativo para actualizar stockBajo: {}", platoId);
+        }
+    }
+    
+    @Transactional
+    public void limpiarTodosStockBajo() {
+        List<CartaPlatoOperativo> platos = platoRepository.findAll();
+        for (CartaPlatoOperativo plato : platos) {
+            if (Boolean.TRUE.equals(plato.getStockBajo())) {
+                plato.setStockBajo(false);
+                platoRepository.save(plato);
+                log.info("Limpiando stock bajo de plato: {}", plato.getNombre());
+            }
+        }
+        log.info("Limpiados todos los flags de stock bajo");
+    }
+    
+    public List<CartaPlatoOperativo> obtenerPlatosConStockBajoFlag() {
+        return platoRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getStockBajo()))
+                .collect(Collectors.toList());
     }
 }

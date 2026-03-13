@@ -62,7 +62,7 @@ interface ReservasState {
   getMetrics: () => ReservasMetrics;
 }
 
-const today = new Date().toISOString().split('T')[0];
+const getToday = (): string => new Date().toISOString().split('T')[0];
 
 export const useReservasStore = create<ReservasState>((set, get) => ({
   salas: [],
@@ -72,7 +72,7 @@ export const useReservasStore = create<ReservasState>((set, get) => ({
   reservas: [],
   waitlist: [],
   disponibilidad: [],
-  agendaFilters: { fecha: today },
+  agendaFilters: { fecha: getToday() },
   loading: {
     salas: false,
     franjas: false,

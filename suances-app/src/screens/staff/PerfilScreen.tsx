@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Vibration } from 'react-native';
 import { Card } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/authStore';
@@ -16,7 +16,7 @@ interface PerfilScreenProps {
 }
 
 export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
-  const { user, logout } = useAuthStore();
+  const { user, logout, logoutAndForget } = useAuthStore();
   const { fetchMesas, setSseConnected: setSalaSseConnected } = useSalaStore();
   const { fetchPlatos } = usePlatoStore();
   const { fetchIngredientes } = useIngredienteStore();
@@ -46,6 +46,23 @@ export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             await logout();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleForgetLogout = () => {
+    Alert.alert(
+      'Eliminar camarero',
+      '¿Eliminar este camarero de la lista y cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar y cerrar',
+          style: 'destructive',
+          onPress: async () => {
+            await logoutAndForget();
           },
         },
       ]
@@ -161,7 +178,14 @@ export const PerfilScreen: React.FC<PerfilScreenProps> = ({ navigation }) => {
 
         <View style={styles.separator} />
 
-        <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handleLogout}
+          onLongPress={() => {
+            Vibration.vibrate(50);
+            handleForgetLogout();
+          }}
+        >
           <Text style={styles.menuText}>🚪 Cerrar Sesión</Text>
         </TouchableOpacity>
       </Card>

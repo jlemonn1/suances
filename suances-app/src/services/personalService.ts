@@ -5,6 +5,9 @@ import {
   UpdatePersonnelRequest,
   ChangeRoleRequest,
   RoleChangeResponse,
+  AnotacionPersonal,
+  CreateAnotacionRequest,
+  ToggleModoEspiaRequest,
 } from '../types/personal';
 
 export const personalService = {
@@ -35,5 +38,25 @@ export const personalService = {
 
   deactivatePersonnel: async (id: string): Promise<void> => {
     await personalApi.delete(`/personnel/${id}`);
+  },
+
+  toggleModoEspia: async (id: string, activo: boolean): Promise<PersonnelResponse> => {
+    const response = await personalApi.patch<PersonnelResponse>(`/personnel/${id}/modo-espia`, { activo });
+    return response.data;
+  },
+
+  registrarAnotacion: async (data: CreateAnotacionRequest): Promise<AnotacionPersonal> => {
+    const response = await personalApi.post<AnotacionPersonal>('/personnel/anotaciones', data);
+    return response.data;
+  },
+
+  getAnotacionesByUsuario: async (usuarioId: string): Promise<AnotacionPersonal[]> => {
+    const response = await personalApi.get<AnotacionPersonal[]>(`/personnel/${usuarioId}/anotaciones`);
+    return response.data;
+  },
+
+  getAllAnotaciones: async (): Promise<AnotacionPersonal[]> => {
+    const response = await personalApi.get<AnotacionPersonal[]>('/personnel/anotaciones');
+    return response.data;
   },
 };

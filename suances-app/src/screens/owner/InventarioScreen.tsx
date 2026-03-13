@@ -11,13 +11,18 @@ import {
   Modal,
   Keyboard,
   TouchableWithoutFeedback,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Loading, Button, ConverterButton } from '../../components/common';
 import { colors, spacing, typography } from '../../theme';
+import { useIngredienteStore } from '../../store/ingredienteStore';
+import { useCartaSSE } from '../../hooks/useCartaSSE';
 import { cartaService } from '../../services/cartaService';
+import { salaService } from '../../services/salaService';
 import { IngredienteResponse } from '../../types/ingrediente';
+import { PlatoOperativo } from '../../types/carta';
 import { UnitConverterService, UnidadConversor } from '../../services/unitConverter';
 
 interface InventarioScreenProps {
@@ -32,8 +37,17 @@ interface Section {
 export const InventarioScreen: React.FC<InventarioScreenProps> = ({
   navigation,
 }) => {
-  const [ingredientes, setIngredientes] = useState<IngredienteResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Usar el store de ingredientes para datos y estado de carga
+  const { 
+    ingredientes, 
+    isLoading: loading, 
+    fetchIngredientes,
+    stockBajoAlertas,
+    stockCriticoAlertas,
+    recentlyUpdated,
+    clearRecentlyUpdated
+  } = useIngredienteStore();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [showAlertsOnly, setShowAlertsOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,27 +55,54 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
   const [selectedIngrediente, setSelectedIngrediente] = useState<IngredienteResponse | null>(null);
   const [newStock, setNewStock] = useState('');
   const [savingStock, setSavingStock] = useState(false);
+  const [showPlatosAfectadosModal, setShowPlatosAfectadosModal] = useState(false);
+  const [platosAfectados, setPlatosAfectados] = useState<PlatoOperativo[]>([]);
+  const [loadingPlatosAfectados, setLoadingPlatosAfectados] = useState(false);
 
   // Estados para el conversor de unidades inline
   const [showInlineConverter, setShowInlineConverter] = useState(false);
   const [converterCantidad, setConverterCantidad] = useState('');
   const [converterUnidad, setConverterUnidad] = useState<UnidadConversor>('KG');
 
-  const loadData = async () => {
+  // Cargar datos iniciales
+  useEffect(() => {
+    fetchIngredientes(true);
+  }, [fetchIngredientes]);
+
+  const loadPlatosAfectados = async () => {
+    setLoadingPlatosAfectados(true);
     try {
-      const data = await cartaService.getIngredientes(true);
-      setIngredientes(data);
+      const platos = await salaService.getPlatosStockBajoAfectados();
+      setPlatosAfectados(platos);
     } catch (error) {
-      console.error('Error loading ingredientes:', error);
+      console.error('[Inventario] Error cargando platos afectados:', error);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoadingPlatosAfectados(false);
     }
   };
 
+  const handleShowPlatosAfectados = () => {
+    loadPlatosAfectados();
+    setShowPlatosAfectadosModal(true);
+  };
+
+  // Activar SSE para recibir actualizaciones de stock en tiempo real
+  useCartaSSE({ enabled: true });
+
+  // Limpiar el highlight de recentlyUpdated después de 3 segundos
   useEffect(() => {
-    loadData();
-  }, []);
+    if (recentlyUpdated.length > 0) {
+      const timers = recentlyUpdated.map(({ ingredienteId }) => {
+        return setTimeout(() => {
+          clearRecentlyUpdated(ingredienteId);
+        }, 3000);
+      });
+
+      return () => {
+        timers.forEach(timer => clearTimeout(timer));
+      };
+    }
+  }, [recentlyUpdated, clearRecentlyUpdated]);
 
   // Filtrar ingredientes según búsqueda y alertas
   const filteredIngredients = useMemo(() => {
@@ -138,7 +179,7 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
         umbralAlerta: selectedIngrediente.umbralAlerta,
       });
       setShowStockModal(false);
-      loadData();
+      fetchIngredientes(true);
     } catch (error) {
       Alert.alert('Error', 'No se pudo actualizar el stock');
     } finally {
@@ -217,6 +258,7 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
   const renderItem = ({ item }: { item: IngredienteResponse }) => {
     const status = getStockStatus(item);
     const stockColor = getStockColor(status);
+    const isRecentlyUpdated = recentlyUpdated.some(r => r.ingredienteId === item.id);
 
     return (
       <Card style={styles.card} onPress={() => openStockModal(item)}>
@@ -226,7 +268,11 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
             <Text style={styles.cardUnidad}>{item.unidadMedida}</Text>
           </View>
           <View style={styles.stockContainer}>
-            <View style={[styles.stockBadge, { backgroundColor: stockColor }]}>
+            <View style={[
+              styles.stockBadge, 
+              { backgroundColor: stockColor },
+              isRecentlyUpdated && styles.stockBadgeHighlight
+            ]}>
               <Text style={styles.stockValue}>{item.stockActual}</Text>
             </View>
             <Text style={styles.umbralText}>Min: {item.umbralAlerta}</Text>
@@ -296,6 +342,18 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
           )}
         </View>
 
+        {alertCount > 0 && (
+          <TouchableOpacity
+            style={styles.platosAfectadosButton}
+            onPress={handleShowPlatosAfectados}
+          >
+            <Ionicons name="restaurant" size={18} color={colors.error} />
+            <Text style={styles.platosAfectadosText}>
+              Ver {alertCount} platos afectados
+            </Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[styles.tab, !showAlertsOnly && styles.tabActive]}
@@ -324,7 +382,13 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
 
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={() => { 
+              setRefreshing(true); 
+              fetchIngredientes(true).finally(() => setRefreshing(false));
+            }} 
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -470,6 +534,57 @@ export const InventarioScreen: React.FC<InventarioScreenProps> = ({
         </TouchableWithoutFeedback>
       </Modal>
 
+      {/* Modal de platos con stock bajo afectados */}
+      <Modal
+        visible={showPlatosAfectadosModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPlatosAfectadosModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.platosAfectadosModal}>
+            <View style={styles.platosAfectadosHeader}>
+              <View style={styles.platosAfectadosTitleRow}>
+                <Ionicons name="warning" size={24} color={colors.error} />
+                <Text style={styles.platosAfectadosTitle}>Platos con stock bajo</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowPlatosAfectadosModal(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingPlatosAfectados ? (
+              <Loading message="Cargando platos..." />
+            ) : (
+              <FlatList
+                data={platosAfectados}
+                keyExtractor={(item) => item.platoId}
+                renderItem={({ item }) => (
+                  <View style={styles.platoAfectadoItem}>
+                    <Text style={styles.platoAfectadoNombre}>{item.nombre}</Text>
+                    <View style={styles.platoAfectadoDetalles}>
+                      {item.ingredientesBajos?.map((ing, idx) => (
+                        <Text key={idx} style={styles.platoAfectadoIng}>
+                          • {ing.nombre}: {ing.stockActual}/{ing.umbralAlerta} {ing.unidadMedida}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.platosAfectadosEmpty}>
+                    <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+                    <Text style={styles.platosAfectadosEmptyText}>
+                      No hay platos con stock bajo
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -602,6 +717,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     minWidth: 60,
     alignItems: 'center',
+  },
+  stockBadgeHighlight: {
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+    borderWidth: 2,
+    borderColor: '#FFD700',
   },
   stockValue: {
     ...typography.h3,
@@ -789,5 +913,81 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.surface,
     fontWeight: '600',
+  },
+  platosAfectadosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
+  },
+  platosAfectadosText: {
+    ...typography.body,
+    color: colors.error,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  platosAfectadosModal: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: spacing.xl,
+  },
+  platosAfectadosHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  platosAfectadosTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  platosAfectadosTitle: {
+    ...typography.h3,
+    color: colors.text,
+    marginLeft: spacing.sm,
+  },
+  platoAfectadoItem: {
+    padding: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  platoAfectadoNombre: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  platoAfectadoDetalles: {
+    marginLeft: spacing.sm,
+  },
+  platoAfectadoIng: {
+    ...typography.caption,
+    color: colors.error,
+  },
+  platosAfectadosEmpty: {
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  platosAfectadosEmptyText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
 });

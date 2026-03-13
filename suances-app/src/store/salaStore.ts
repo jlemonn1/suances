@@ -13,6 +13,8 @@ import type {
   CobrarRequest,
   Pedido,
   TipoRonda,
+  TicketResponse,
+  ComandaHoyResponse,
 } from '../types/sala';
 
 interface SalaState {
@@ -31,6 +33,11 @@ interface SalaState {
   comandaConRondas: ComandaDetalleRondas | null;
   loadingComandas: boolean;
   errorComandas: string | null;
+
+  // Comandas del día (para OWNER/MANAGER)
+  comandasHoy: ComandaHoyResponse[];
+  loadingComandasHoy: boolean;
+  errorComandasHoy: string | null;
 
   // Selección de items para enviar a cocina
   itemsSeleccionados: string[];
@@ -55,9 +62,15 @@ interface SalaState {
   crearComanda: (data: CrearComandaRequest) => Promise<Comanda>;
   agregarPedido: (comandaId: string, data: AgregarPedidoRequest) => Promise<Pedido[]>;
   cambiarEstadoPedido: (pedidoId: string, estado: string) => Promise<void>;
-  cerrarComanda: (comandaId: string, tipoPago: string) => Promise<void>;
+  cerrarComanda: (comandaId: string) => Promise<TicketResponse>;
   cobrarComanda: (comandaId: string, data: CobrarRequest) => Promise<CobroResponse>;
   cancelarComanda: (comandaId: string, motivo: string) => Promise<void>;
+
+  // Nuevos métodos para gestión de cuenta cerrada
+  reenviarTicket: (comandaId: string) => Promise<void>;
+  modificarLineasCuenta: (comandaId: string, itemIds: string[], motivo: string) => Promise<TicketResponse>;
+  cancelarCuentaCerrada: (comandaId: string, motivo: string, usuarioNombre: string) => Promise<TicketResponse>;
+  fetchComandasHoy: () => Promise<void>;
 
   // Nuevos métodos para rondas y envío a cocina
   enviarACocina: (comandaId: string, ronda: TipoRonda, itemIds: string[]) => Promise<void>;
@@ -79,7 +92,7 @@ interface SalaState {
   setComandaConRondas: (comanda: ComandaDetalleRondas | null) => void;
   limpiarEstado: () => void;
   limpiarError: () => void;
-  updateMesaFromSSE: (data: { mesaId: string; estado: string; reservaId?: string; nombreCliente?: string; franjaId?: string }) => void;
+  updateMesaFromSSE: (data: { mesaId: string; estado: string; comandaId?: string; codigo?: string; camareroId?: string; reservaId?: string; nombreCliente?: string; franjaId?: string }) => void;
 }
 
 export const useSalaStore = create<SalaState>((set, get) => ({
@@ -98,6 +111,11 @@ export const useSalaStore = create<SalaState>((set, get) => ({
   comandaConRondas: null,
   loadingComandas: false,
   errorComandas: null,
+
+  // Comandas del día (para OWNER/MANAGER)
+  comandasHoy: [],
+  loadingComandasHoy: false,
+  errorComandasHoy: null,
 
   // Selección de items para enviar a cocina
   itemsSeleccionados: [],
@@ -147,27 +165,41 @@ export const useSalaStore = create<SalaState>((set, get) => ({
             nuevaMesa.nombreClienteReserva = data.nombreCliente;
           } else if (data.estado === 'LIBRE') {
             nuevaMesa.estadoOperativo = 'LIBRE';
+            nuevaMesa.comandaActivaId = undefined;
+            nuevaMesa.codigoComanda = undefined;
             nuevaMesa.reservaActualId = undefined;
             nuevaMesa.nombreClienteReserva = undefined;
+          } else if (data.estado === 'CUENTA') {
+            // Estado CUENTA: cuenta cerrada pendiente de cobro
+            nuevaMesa.estadoOperativo = 'CUENTA';
+            nuevaMesa.comandaActivaId = data.comandaId;
+            nuevaMesa.codigoComanda = data.codigo;
+          } else if (data.estado === 'OCUPADA') {
+            // Estado OCUPADA: comanda abierta
+            nuevaMesa.estadoOperativo = 'OCUPADA';
+            nuevaMesa.comandaActivaId = data.comandaId;
+            nuevaMesa.codigoComanda = data.codigo;
+            nuevaMesa.camareroAsignadoId = data.camareroId;
           }
           return nuevaMesa;
         }
         return mesa;
       });
 
-      // Recalcular resumen
-      const libres = mesasActualizadas.filter(m => m.estadoOperativo === 'LIBRE').length;
+      // Recalcular resumen incluyendo CUENTA
+      const libres = mesasActualizadas.filter(m => m.estadoOperativo === 'LIBRE' || m.estadoOperativo === 'COBRADA').length;
       const ocupadas = mesasActualizadas.filter(m => m.estadoOperativo === 'OCUPADA').length;
+      const cuentas = mesasActualizadas.filter(m => m.estadoOperativo === 'CUENTA').length;
       const reservadas = mesasActualizadas.filter(m => m.estadoOperativo === 'RESERVADA').length;
 
-      console.log('[salaStore] Mesa actualizada. Total:', mesasActualizadas.length, 'Libres:', libres, 'Ocupadas:', ocupadas, 'Reservadas:', reservadas);
+      console.log('[salaStore] Mesa actualizada. Total:', mesasActualizadas.length, 'Libres:', libres, 'Ocupadas:', ocupadas, 'Cuentas:', cuentas, 'Reservadas:', reservadas);
 
       return {
         mesas: mesasActualizadas,
         mesasResumen: {
           totalMesas: mesasActualizadas.length,
           libres,
-          ocupadas,
+          ocupadas: ocupadas + cuentas, // CUENTA se considera ocupada para el resumen
           reservadas,
         },
       };
@@ -316,16 +348,78 @@ export const useSalaStore = create<SalaState>((set, get) => ({
     }
   },
 
-  cerrarComanda: async (comandaId, tipoPago) => {
+  cerrarComanda: async (comandaId) => {
     set({ loadingAccion: true, errorAccion: null });
     try {
-      await salaService.cerrarComanda(comandaId, { tipoPago });
+      const ticket = await salaService.cerrarComanda(comandaId);
       await get().fetchComanda(comandaId);
+      await get().fetchComandaConRondas(comandaId);
       set({ loadingAccion: false });
+      return ticket;
     } catch (error: any) {
       set({
         errorAccion: error.response?.data?.message || 'Error al cerrar comanda',
         loadingAccion: false,
+      });
+      throw error;
+    }
+  },
+
+  reenviarTicket: async (comandaId) => {
+    set({ loadingAccion: true, errorAccion: null });
+    try {
+      await salaService.reenviarTicket(comandaId);
+      set({ loadingAccion: false });
+    } catch (error: any) {
+      set({
+        errorAccion: error.response?.data?.message || 'Error al reenviar ticket',
+        loadingAccion: false,
+      });
+      throw error;
+    }
+  },
+
+  modificarLineasCuenta: async (comandaId, itemIds, motivo) => {
+    set({ loadingAccion: true, errorAccion: null });
+    try {
+      const ticket = await salaService.modificarLineasCuenta(comandaId, itemIds, motivo);
+      await get().fetchComandaConRondas(comandaId);
+      await get().fetchCuenta(comandaId);
+      set({ loadingAccion: false });
+      return ticket;
+    } catch (error: any) {
+      set({
+        errorAccion: error.response?.data?.message || 'Error al modificar líneas',
+        loadingAccion: false,
+      });
+      throw error;
+    }
+  },
+
+  cancelarCuentaCerrada: async (comandaId, motivo, usuarioNombre) => {
+    set({ loadingAccion: true, errorAccion: null });
+    try {
+      const ticket = await salaService.cancelarCuentaCerrada(comandaId, motivo, usuarioNombre);
+      set({ loadingAccion: false });
+      return ticket;
+    } catch (error: any) {
+      set({
+        errorAccion: error.response?.data?.message || 'Error al cancelar cuenta',
+        loadingAccion: false,
+      });
+      throw error;
+    }
+  },
+
+  fetchComandasHoy: async () => {
+    set({ loadingComandasHoy: true, errorComandasHoy: null });
+    try {
+      const comandas = await salaService.listarComandasHoy();
+      set({ comandasHoy: comandas, loadingComandasHoy: false });
+    } catch (error: any) {
+      set({
+        errorComandasHoy: error.response?.data?.message || 'Error al cargar comandas del día',
+        loadingComandasHoy: false,
       });
       throw error;
     }
