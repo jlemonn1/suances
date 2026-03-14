@@ -3,10 +3,8 @@ package com.suances.carta.service;
 import com.suances.carta.domain.model.Categoria;
 import com.suances.carta.domain.model.Plato;
 import com.suances.carta.domain.model.PlatoImagen;
-import com.suances.carta.domain.model.TipoCarta;
 import com.suances.carta.dto.event.PlatoChangedEvent;
 import com.suances.carta.dto.event.PlatoDisponibilidadEvent;
-import com.suances.carta.dto.event.TipoCartaPlatosChangedEvent;
 import com.suances.carta.dto.request.PlatoRequest;
 import com.suances.carta.dto.request.PlatoImagenRequest;
 import com.suances.carta.dto.response.PlatoResponse;
@@ -14,7 +12,9 @@ import com.suances.carta.exception.ResourceNotFoundException;
 import com.suances.carta.repository.CategoriaRepository;
 import com.suances.carta.repository.PlatoRepository;
 import com.suances.carta.repository.PlatoImagenRepository;
-import com.suances.carta.repository.TipoCartaRepository;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -22,22 +22,13 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class PlatoService {
 
     private final PlatoRepository platoRepository;
     private final PlatoImagenRepository platoImagenRepository;
     private final CategoriaRepository categoriaRepository;
-    private final TipoCartaRepository tipoCartaRepository;
     private final EventProducer eventProducer;
-
-    public PlatoService(PlatoRepository platoRepository, PlatoImagenRepository platoImagenRepository,
-            CategoriaRepository categoriaRepository, TipoCartaRepository tipoCartaRepository, EventProducer eventProducer) {
-        this.platoRepository = platoRepository;
-        this.platoImagenRepository = platoImagenRepository;
-        this.categoriaRepository = categoriaRepository;
-        this.tipoCartaRepository = tipoCartaRepository;
-        this.eventProducer = eventProducer;
-    }
 
     @Transactional
     public PlatoResponse crear(PlatoRequest request) {
@@ -50,7 +41,8 @@ public class PlatoService {
 
         if (request.getCategoriaId() != null) {
             Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Categoría no encontrada: " + request.getCategoriaId()));
             plato.setCategoria(categoria);
         }
 
@@ -65,8 +57,7 @@ public class PlatoService {
                 saved.getPrecioVenta(),
                 saved.getCategoria() != null ? saved.getCategoria().getId() : null,
                 saved.getCategoria() != null ? saved.getCategoria().getNombre() : null,
-                saved.getActivo()
-        );
+                saved.getActivo());
         eventProducer.publicarPlatoCreado(event);
 
         return PlatoResponse.fromEntity(saved);
@@ -101,7 +92,8 @@ public class PlatoService {
 
         if (request.getCategoriaId() != null) {
             Categoria categoria = categoriaRepository.findById(request.getCategoriaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Categoría no encontrada: " + request.getCategoriaId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Categoría no encontrada: " + request.getCategoriaId()));
             plato.setCategoria(categoria);
         } else {
             plato.setCategoria(null);
@@ -118,8 +110,7 @@ public class PlatoService {
                 saved.getPrecioVenta(),
                 saved.getCategoria() != null ? saved.getCategoria().getId() : null,
                 saved.getCategoria() != null ? saved.getCategoria().getNombre() : null,
-                saved.getActivo()
-        );
+                saved.getActivo());
         eventProducer.publicarPlatoActualizado(event);
 
         return PlatoResponse.fromEntity(saved);
@@ -136,8 +127,7 @@ public class PlatoService {
         PlatoDisponibilidadEvent event = new PlatoDisponibilidadEvent(
                 saved.getId(),
                 saved.getNombre(),
-                false
-        );
+                false);
         eventProducer.publicarPlatoDisponibilidad(event);
     }
 
@@ -152,8 +142,7 @@ public class PlatoService {
         PlatoDisponibilidadEvent event = new PlatoDisponibilidadEvent(
                 saved.getId(),
                 saved.getNombre(),
-                true
-        );
+                true);
         eventProducer.publicarPlatoDisponibilidad(event);
     }
 
@@ -195,11 +184,11 @@ public class PlatoService {
         }
         PlatoImagen imagen = platoImagenRepository.findById(imagenId)
                 .orElseThrow(() -> new ResourceNotFoundException("Imagen no encontrada: " + imagenId));
-        
+
         if (!imagen.getPlato().getId().equals(platoId)) {
             throw new ResourceNotFoundException("La imagen no pertenece al plato especificado");
         }
-        
+
         platoImagenRepository.delete(imagen);
     }
 }

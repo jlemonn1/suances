@@ -120,7 +120,6 @@ public class PersonnelService {
                 usuario.getRole(),
                 usuario.getImageUrl(),
                 usuario.getActivo(),
-                usuario.getModoEspia(),
                 usuario.getCreatedAt());
     }
 }

@@ -11,7 +11,6 @@ import com.suances.carta.dto.event.PlatosAfectadosStockEvent;
 import com.suances.carta.dto.event.PlatosStockMejoradoEvent;
 import com.suances.carta.dto.event.SalaPedidoEvent;
 import com.suances.carta.dto.event.StockBajoEvent;
-import com.suances.carta.repository.PlatoRepository;
 import com.suances.carta.event.SseEmitterManager;
 import com.suances.carta.repository.EscandalloRepository;
 import com.suances.carta.repository.EventosProcesadosRepository;
@@ -22,6 +21,7 @@ import com.suances.carta.service.PlatoService;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,13 +36,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
 public class EventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(EventConsumer.class);
@@ -62,35 +61,12 @@ public class EventConsumer {
     private final PlatoService platoService;
     private final IngredienteService ingredienteService;
     private final IngredienteRepository ingredienteRepository;
-    private final PlatoRepository platoRepository;
     private final EventProducer eventProducer;
     private final EscandalloRepository escandalloRepository;
     private final SseEmitterManager sseEmitterManager;
 
     private ExecutorService executor;
     private volatile boolean activo = true;
-
-    public EventConsumer(StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper,
-            EventosProcesadosRepository eventosProcesadosRepository,
-            PlatoService platoService,
-            IngredienteService ingredienteService,
-            IngredienteRepository ingredienteRepository,
-            PlatoRepository platoRepository,
-            EventProducer eventProducer,
-            EscandalloRepository escandalloRepository,
-            SseEmitterManager sseEmitterManager) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
-        this.eventosProcesadosRepository = eventosProcesadosRepository;
-        this.platoService = platoService;
-        this.ingredienteService = ingredienteService;
-        this.ingredienteRepository = ingredienteRepository;
-        this.platoRepository = platoRepository;
-        this.eventProducer = eventProducer;
-        this.escandalloRepository = escandalloRepository;
-        this.sseEmitterManager = sseEmitterManager;
-    }
 
     @PostConstruct
     public void iniciarConsumidor() {
@@ -188,28 +164,29 @@ public class EventConsumer {
             }
 
             // Procesar cada item de la ronda
-            log.info("[EVENTO] Procesando {} items de la ronda", evento.getItems() != null ? evento.getItems().size() : 0);
+            log.info("[EVENTO] Procesando {} items de la ronda",
+                    evento.getItems() != null ? evento.getItems().size() : 0);
             List<PedidoProcesadoEvent.ItemProcesado> itemsProcesados = new ArrayList<>();
-            
+
             if (evento.getItems() != null) {
                 for (SalaPedidoEvent.ItemPedido item : evento.getItems()) {
                     try {
                         log.info("[EVENTO] Procesando item: platoId={}, nombre={}, cantidad={}",
                                 item.getPlatoId(), item.getNombrePlato(), item.getCantidad());
-                        
+
                         // Incrementar contador del plato
                         platoService.incrementarContador(item.getPlatoId(), item.getCantidad());
-                        
+
                         // Descontar stock de ingredientes
                         ingredienteService.descontarStock(item.getPlatoId(), item.getCantidad());
-                        
+
                         // Verificar alertas de stock
                         verificarYEmitirAlertasStock(item.getPlatoId());
-                        
+
                         // Crear ItemProcesado con información de ingredientes
                         PedidoProcesadoEvent.ItemProcesado itemProcesado = crearItemProcesado(item);
                         itemsProcesados.add(itemProcesado);
-                        
+
                         log.info("[EVENTO] Item procesado exitosamente: {}", item.getNombrePlato());
                     } catch (Exception itemEx) {
                         log.error("[EVENTO] Error procesando item {}: {}", item.getPlatoId(), itemEx.getMessage());
@@ -227,16 +204,16 @@ public class EventConsumer {
             pedidoProcesado.setTipoRonda(evento.getTipoRonda());
             pedidoProcesado.setCamareroId(evento.getCamareroId());
             pedidoProcesado.setItems(itemsProcesados);
-            
+
             // Publicar evento a Redis Stream
             log.info("[EVENTO] Publicando a Redis Stream");
             eventProducer.publicarPedidoProcesado(pedidoProcesado);
-            
+
             // Publicar evento vía SSE
             log.info("[EVENTO] Broadcasting via SSE");
             sseEmitterManager.broadcast("carta.pedido_procesado", pedidoProcesado);
-            
-            log.info("[EVENTO] Pedido procesado y notificado: comanda={}, ronda={}, items={}", 
+
+            log.info("[EVENTO] Pedido procesado y notificado: comanda={}, ronda={}, items={}",
                     evento.getComandaId(), evento.getNumeroRonda(), itemsProcesados.size());
 
             // Detectar y notificar platos afectados por stock bajo
@@ -271,29 +248,30 @@ public class EventConsumer {
         itemProcesado.setPlatoId(item.getPlatoId());
         itemProcesado.setNombrePlato(item.getNombrePlato());
         itemProcesado.setCantidad(item.getCantidad());
-        
+
         // Obtener ingredientes consumidos del escandallo
         List<PedidoProcesadoEvent.IngredienteConsumido> ingredientesConsumidos = new ArrayList<>();
-        
+
         Optional<Escandallo> escandalloOpt = escandalloRepository.findByPlatoIdWithDetalles(item.getPlatoId());
         if (escandalloOpt.isPresent() && escandalloOpt.get().getDetalles() != null) {
             for (EscandalloDetalle detalle : escandalloOpt.get().getDetalles()) {
                 Ingrediente ingrediente = detalle.getIngrediente();
                 BigDecimal cantidadConsumida = detalle.getCantidad().multiply(BigDecimal.valueOf(item.getCantidad()));
-                
+
                 // Refrescar el ingrediente para obtener el stock actual actualizado
-                Ingrediente ingredienteActualizado = ingredienteRepository.findById(ingrediente.getId()).orElse(ingrediente);
-                
+                Ingrediente ingredienteActualizado = ingredienteRepository.findById(ingrediente.getId())
+                        .orElse(ingrediente);
+
                 PedidoProcesadoEvent.IngredienteConsumido ingredienteConsumido = new PedidoProcesadoEvent.IngredienteConsumido();
                 ingredienteConsumido.setIngredienteId(ingrediente.getId());
                 ingredienteConsumido.setNombre(ingrediente.getNombre());
                 ingredienteConsumido.setCantidadConsumida(cantidadConsumida);
                 ingredienteConsumido.setStockActual(ingredienteActualizado.getStockActual());
-                
+
                 ingredientesConsumidos.add(ingredienteConsumido);
             }
         }
-        
+
         itemProcesado.setIngredientesConsumidos(ingredientesConsumidos);
         return itemProcesado;
     }
@@ -329,7 +307,7 @@ public class EventConsumer {
             }
 
             log.info("[EVENTO] Detectando TODOS los platos con stock bajo...");
-            
+
             // Calcular TODOS los platos que tienen ingredientes con stock bajo
             List<PlatosAfectadosStockEvent.PlatoAfectado> platosAfectados = calcularTodosPlatosConStockBajo();
 
@@ -351,11 +329,12 @@ public class EventConsumer {
             log.error("[EVENTO] Error al detectar platos afectados: {}", e.getMessage(), e);
         }
     }
-    
+
     public void calcularYNotificarPlatosStockRecuperado(UUID ingredienteId) {
         try {
-            log.info("[CARTA-STOCK] === INICIO calcularYNotificarPlatosStockRecuperado para ingredienteId: {}", ingredienteId);
-            
+            log.info("[CARTA-STOCK] === INICIO calcularYNotificarPlatosStockRecuperado para ingredienteId: {}",
+                    ingredienteId);
+
             // Obtener el ingrediente
             Ingrediente ingrediente = ingredienteRepository.findById(ingredienteId)
                     .orElse(null);
@@ -363,64 +342,69 @@ public class EventConsumer {
                 log.warn("[CARTA-STOCK] Ingrediente no encontrado: {}", ingredienteId);
                 return;
             }
-            
-            log.info("[CARTA-STOCK] Ingrediente encontrado: {}, stockActual: {}, umbralAlerta: {}", 
+
+            log.info("[CARTA-STOCK] Ingrediente encontrado: {}, stockActual: {}, umbralAlerta: {}",
                     ingrediente.getNombre(), ingrediente.getStockActual(), ingrediente.getUmbralAlerta());
-            
+
             // Verificar si el ingrediente ya no está bajo stock
             if (ingrediente.getStockActual().compareTo(ingrediente.getUmbralAlerta()) < 0) {
-                log.info("[CARTA-STOCK] El ingrediente {} todavia esta bajo stock (stock: {}, umbral: {}), NO se notifica recuperacion", 
+                log.info(
+                        "[CARTA-STOCK] El ingrediente {} todavia esta bajo stock (stock: {}, umbral: {}), NO se notifica recuperacion",
                         ingrediente.getNombre(), ingrediente.getStockActual(), ingrediente.getUmbralAlerta());
                 return;
             }
-            
-            log.info("[CARTA-STOCK] El ingrediente {} tiene stock suficiente, calculando platos afectados...", ingrediente.getNombre());
-            
+
+            log.info("[CARTA-STOCK] El ingrediente {} tiene stock suficiente, calculando platos afectados...",
+                    ingrediente.getNombre());
+
             // Obtener todos los platos que tienen este ingrediente en su escandallo
             List<Escandallo> escandalos = escandalloRepository.findByIngredienteIdWithDetalles(ingredienteId);
             log.info("[CARTA-STOCK] Total escandalos encontrados: {}", escandalos.size());
-            
+
             List<PlatosStockMejoradoEvent.PlatoRecuperado> platosRecuperados = new ArrayList<>();
-            
+
             for (Escandallo escandallo : escandalos) {
-                if (escandallo.getDetalles() == null) continue;
-                
+                if (escandallo.getDetalles() == null)
+                    continue;
+
                 // Verificar si este escandallo contiene el ingrediente
                 boolean tieneElIngrediente = escandallo.getDetalles().stream()
                         .anyMatch(d -> d.getIngrediente().getId().equals(ingredienteId));
-                
-                if (!tieneElIngrediente) continue;
-                
-                log.info("[CARTA-STOCK] El plato {} tiene el ingrediente {}", 
-                        escandallo.getPlato() != null ? escandallo.getPlato().getNombre() : "unknown", ingrediente.getNombre());
-                
+
+                if (!tieneElIngrediente)
+                    continue;
+
+                log.info("[CARTA-STOCK] El plato {} tiene el ingrediente {}",
+                        escandallo.getPlato() != null ? escandallo.getPlato().getNombre() : "unknown",
+                        ingrediente.getNombre());
+
                 // Verificar si algún otro ingrediente del escandallo tiene stock bajo
                 boolean tieneOtroIngredienteBajo = false;
                 for (EscandalloDetalle detalle : escandallo.getDetalles()) {
                     Ingrediente ing = detalle.getIngrediente();
                     // Refrescar para obtener stock actual
                     Ingrediente ingActualizado = ingredienteRepository.findById(ing.getId()).orElse(ing);
-                    
+
                     if (ingActualizado.getStockActual().compareTo(ingActualizado.getUmbralAlerta()) < 0) {
-                        log.info("[CARTA-STOCK]   - Ingrediente {} tiene stock bajo: {}/{}", 
-                                ingActualizado.getNombre(), ingActualizado.getStockActual(), ingActualizado.getUmbralAlerta());
+                        log.info("[CARTA-STOCK]   - Ingrediente {} tiene stock bajo: {}/{}",
+                                ingActualizado.getNombre(), ingActualizado.getStockActual(),
+                                ingActualizado.getUmbralAlerta());
                         tieneOtroIngredienteBajo = true;
                         break;
                     }
                 }
-                
+
                 // Si no tiene ningún ingrediente bajo, el plato está recuperado
                 if (!tieneOtroIngredienteBajo) {
                     if (escandallo.getPlato() != null) {
                         platosRecuperados.add(new PlatosStockMejoradoEvent.PlatoRecuperado(
                                 escandallo.getPlato().getId(),
-                                escandallo.getPlato().getNombre()
-                        ));
+                                escandallo.getPlato().getNombre()));
                         log.info("[EVENTO] Plato recuperado: {}", escandallo.getPlato().getNombre());
                     }
                 }
             }
-            
+
             // Publicar evento si hay platos recuperados
             if (!platosRecuperados.isEmpty()) {
                 PlatosStockMejoradoEvent evento = new PlatosStockMejoradoEvent();
@@ -430,51 +414,51 @@ public class EventConsumer {
             } else {
                 log.info("[EVENTO] No hay platos recuperados (otros ingredientes siguen bajos)");
             }
-            
+
         } catch (Exception e) {
             log.error("[EVENTO] Error al calcular platos stock recuperado: {}", e.getMessage(), e);
         }
     }
-    
+
     private List<PlatosAfectadosStockEvent.PlatoAfectado> calcularTodosPlatosConStockBajo() {
         List<PlatosAfectadosStockEvent.PlatoAfectado> platosAfectados = new ArrayList<>();
-        
+
         List<Escandallo> todosEscandalos = escandalloRepository.findAllWithDetalles();
-        
+
         for (Escandallo escandallo : todosEscandalos) {
             if (escandallo.getDetalles() == null || escandallo.getDetalles().isEmpty()) {
                 continue;
             }
-            
+
             Plato plato = escandallo.getPlato();
-            if (plato == null) continue;
-            
+            if (plato == null)
+                continue;
+
             List<PlatosAfectadosStockEvent.IngredienteBajo> ingredientesBajos = new ArrayList<>();
-            
+
             for (EscandalloDetalle detalle : escandallo.getDetalles()) {
                 Ingrediente ingrediente = detalle.getIngrediente();
-                if (ingrediente == null) continue;
-                
+                if (ingrediente == null)
+                    continue;
+
                 if (ingrediente.getStockActual().compareTo(ingrediente.getUmbralAlerta()) < 0) {
                     ingredientesBajos.add(new PlatosAfectadosStockEvent.IngredienteBajo(
                             ingrediente.getId(),
                             ingrediente.getNombre(),
                             ingrediente.getStockActual(),
                             ingrediente.getUmbralAlerta(),
-                            ingrediente.getUnidadMedida().name()
-                    ));
+                            ingrediente.getUnidadMedida().name()));
                 }
             }
-            
+
             if (!ingredientesBajos.isEmpty()) {
                 platosAfectados.add(new PlatosAfectadosStockEvent.PlatoAfectado(
                         plato.getId(),
                         plato.getNombre(),
-                        ingredientesBajos
-                ));
+                        ingredientesBajos));
             }
         }
-        
+
         return platosAfectados;
     }
 }
