@@ -1,15 +1,19 @@
 services:
-  media-service:
+  caja-service:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: suances-media-service
+    container_name: suances-caja-service
     ports:
-      - "8080:8080"
+      - "8082:8082"
     env_file:
       - ../../.env
     environment:
       - SPRING_PROFILES_ACTIVE=dev
+      - DB_URL=jdbc:postgresql://suances-postgres:5432/caja
+      - REDIS_HOST=suances-redis
+      - REDIS_PORT=6379
+
     networks:
       - suances-network
 

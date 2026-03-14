@@ -8,5 +8,7 @@ CREATE DATABASE carta;
 CREATE DATABASE personal;
 
 CREATE DATABASE reservas;
+
+CREATE DATABASE caja;
 -- CREATE DATABASE catalog;
 -- CREATE DATABASE orders;

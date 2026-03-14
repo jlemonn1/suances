@@ -49,6 +49,16 @@
             "projectName": "media",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-CajaApplication<caja>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.suances.caja.CajaApplication",
+            "projectName": "caja",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }
