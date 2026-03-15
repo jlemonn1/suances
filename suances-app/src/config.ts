@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 type ServiceKey = 'PERSONAL' | 'CARTA' | 'RESERVAS' | 'SALA';
 
@@ -28,17 +29,39 @@ const readEnvVar = (key: string): string | undefined => {
   return env[key];
 };
 
-const DEFAULT_DEVICE_IP = readEnvVar('DEV_DEVICE_IP') ?? '172.20.10.7';
+const DEFAULT_LOCAL_IP = '172.20.10.7';
+
+const getDeviceIP = (): string => {
+  const envIP = readEnvVar('API_IP');
+  if (envIP && envIP.trim().length > 0) {
+    return envIP.trim();
+  }
+  
+  const expoConfigIP = (Constants.manifest?.extra ?? Constants.extra)?.API_IP as string | undefined;
+  if (expoConfigIP) {
+    return expoConfigIP;
+  }
+  
+  if (Platform.OS === 'web') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return hostname;
+    }
+  }
+  
+  return DEFAULT_LOCAL_IP;
+};
 
 const isMobileRuntime = Platform.OS === 'ios' || Platform.OS === 'android';
 
 const sanitizeUrl = (value: string): string => value.replace(/\/+$/, '');
 
-const getLocalHost = (port: number): string => {
+const getBaseUrl = (port: number): string => {
+  const ip = getDeviceIP();
   if (isMobileRuntime) {
-    return `http://172.20.10.7:${port}`;
+    return `http://${ip}:${port}`;
   }
-  return `http://172.20.10.7:${port}`;
+  return `http://${ip}:${port}`;
 };
 
 const resolveBaseUrl = (service: ServiceKey): string => {
@@ -47,11 +70,12 @@ const resolveBaseUrl = (service: ServiceKey): string => {
     return sanitizeUrl(envValue.trim());
   }
 
-  const fallback = `${getLocalHost(SERVICE_PORT[service])}${SERVICE_CONTEXT[service]}`;
+  const fallback = `${getBaseUrl(SERVICE_PORT[service])}${SERVICE_CONTEXT[service]}`;
   return sanitizeUrl(fallback);
 };
 
 export const API_CONFIG = {
+  API_IP: getDeviceIP(),
   PERSONAL_BASE_URL: resolveBaseUrl('PERSONAL'),
   CARTA_BASE_URL: resolveBaseUrl('CARTA'),
   RESERVAS_BASE_URL: resolveBaseUrl('RESERVAS'),

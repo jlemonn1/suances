@@ -1,0 +1,5 @@
+redis>=4.0.0
+pywin32>=227;platform_system=='Windows'
+pyserial>=3.5
+python-escpos>=3.0a5;platform_system!='Windows'
+Pillow>=9.0.0

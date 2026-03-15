@@ -164,7 +164,16 @@ export const ComandaDetailScreen: React.FC = () => {
   };
 
   const handleCobrar = () => {
-    navigation.navigate('Cobro', { comandaId });
+    // Calcular el total de la comanda si está disponible
+    let total = 0;
+    if (comandaConRondas?.rondas) {
+      total = comandaConRondas.rondas.reduce((sum, ronda) => {
+        return sum + ronda.pedidos
+          .filter(p => p.estado !== 'CANCELADO')
+          .reduce((itemSum, p) => itemSum + (p.subtotal || 0), 0);
+      }, 0);
+    }
+    navigation.navigate('Cobro', { comandaId, total });
   };
 
   const handleToggleEdicion = async () => {

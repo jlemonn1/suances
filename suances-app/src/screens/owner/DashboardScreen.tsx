@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, Animated } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card, Loading } from '../../components/common';
-import { AlertPanel, ReservationSummary, WelcomeHero, HEADER_MAX_HEIGHT } from '../../components/dashboard';
+import { AlertPanel, ReservationSummary, WelcomeHero, HEADER_MAX_HEIGHT, LiveTicketsGallery } from '../../components/dashboard';
 import { colors, spacing, typography } from '../../theme';
 import { cartaService } from '../../services/cartaService';
 import { PlatoResponse } from '../../types/plato';
@@ -79,7 +79,9 @@ export const DashboardScreen = ({ navigation }: any) => {
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
-        <View style={styles.content}>          
+        <View style={styles.content}>
+          <LiveTicketsGallery />
+          <View style={styles.gallerySpacer} />
           <AlertPanel />
           <ReservationSummary />
 
@@ -119,6 +121,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
+  },
+  gallerySpacer: {
+    height: spacing.lg,
   },
   section: {
     marginTop: spacing.md,

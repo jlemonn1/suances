@@ -287,7 +287,7 @@ const DashboardStack = () => (
     <Stack.Screen
       name="SalaEnVivo"
       component={SalaEnVivoScreenAnimated}
-      options={{ title: 'Sala en Vivo' }}
+      options={{ headerShown: false }}
     />
     <Stack.Screen
       name="ComandasHoy"

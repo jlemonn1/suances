@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -28,6 +29,24 @@ public class SalaEventProducer {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.redis.print-channel}")
+    private String printChannel;
+
+    @Value("${app.redis.print-cocina-channel:print/cocina}")
+    private String printCocinaChannel;
+
+    @Value("${app.redis.print-barra-channel:print/barra}")
+    private String printBarraChannel;
+
+    @Value("${app.printer.cocina-name:Cocina}")
+    private String cocinaPrinterName;
+
+    @Value("${app.printer.barra-name:Isabella}")
+    private String barraPrinterName;
+
+    @Value("${app.redis.printer-name:POSIFLEX PP-6900}")
+    private String printerName;
 
     public SalaEventProducer(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
@@ -188,4 +207,170 @@ public class SalaEventProducer {
         RecordId recordId = redisTemplate.opsForStream().add(streamOutput, evento);
         log.debug("Evento publicado en stream {} con ID: {}", streamOutput, recordId);
     }
+
+    public void publicarTicketImpresion(com.suances.sala.domain.dto.response.TicketCobroResponse ticket, String impresora) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("id", UUID.randomUUID().toString());
+            data.put("printer", impresora);
+            data.put("comandaId", ticket.comandaId().toString());
+            data.put("codigo", ticket.codigo());
+            data.put("mesa", ticket.mesaNumero());
+            data.put("total", ticket.total().toString());
+            data.put("tipo", ticket.tipoTicket());
+            data.put("timestamp", OffsetDateTime.now().toString());
+
+            ArrayNode itemsArray = objectMapper.createArrayNode();
+            for (var ronda : ticket.rondas()) {
+                for (var item : ronda.items()) {
+                    ObjectNode itemNode = objectMapper.createObjectNode();
+                    itemNode.put("name", item.nombrePlato());
+                    itemNode.put("quantity", item.cantidad());
+                    itemNode.put("price", item.subtotal().doubleValue());
+                    itemsArray.add(itemNode);
+                }
+            }
+            data.set("items", itemsArray);
+
+            String json = data.toString();
+            redisTemplate.convertAndSend(printChannel, json);
+            log.info("Ticket publicado para imprimir en: {}", impresora);
+        } catch (Exception e) {
+            log.error("Error al publicar ticket para impresión", e);
+        }
+    }
+
+    @Value("${app.redis.print-isabella-channel:print/ticket-isabella}")
+    private String printIsabellaChannel;
+
+    @Value("${app.redis.print-faro-channel:print/ticket-faro}")
+    private String printFaroChannel;
+
+    public void publicarTicketCuentaImpresion(com.suances.sala.domain.dto.response.TicketCobroResponse ticket, String impresoraDestino) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("id", UUID.randomUUID().toString());
+            data.put("type", "TICKET_CUENTA");
+            data.put("printer", printerName);
+            data.put("comandaId", ticket.comandaId().toString());
+            data.put("codigo", ticket.codigo());
+            data.put("mesa", ticket.mesaNumero());
+            data.put("camarero", ticket.camareroNombre());
+            data.put("comensales", ticket.comensales());
+            data.put("fechaApertura", ticket.fechaApertura().toString());
+            data.put("subtotal", ticket.subtotal().toString());
+            data.put("descuento", ticket.descuento().toString());
+            data.put("total", ticket.total().toString());
+            data.put("tipoTicket", ticket.tipoTicket());
+            data.put("timestamp", OffsetDateTime.now().toString());
+
+            ArrayNode rondasArray = objectMapper.createArrayNode();
+            int numeroRonda = 1;
+            for (var ronda : ticket.rondas()) {
+                ObjectNode rondaNode = objectMapper.createObjectNode();
+                rondaNode.put("numeroRonda", numeroRonda++);
+                rondaNode.put("tipoRonda", ronda.tipoRonda());
+                
+                ArrayNode itemsArray = objectMapper.createArrayNode();
+                for (var item : ronda.items()) {
+                    ObjectNode itemNode = objectMapper.createObjectNode();
+                    itemNode.put("nombrePlato", item.nombrePlato());
+                    itemNode.put("cantidad", item.cantidad());
+                    itemNode.put("precioUnitario", item.precioUnitario().toString());
+                    itemNode.put("subtotal", item.subtotal().toString());
+                    itemsArray.add(itemNode);
+                }
+                rondaNode.set("items", itemsArray);
+                rondasArray.add(rondaNode);
+            }
+            data.set("rondas", rondasArray);
+
+            String json = data.toString();
+            
+            // Send to appropriate channel based on printer destination
+            String targetChannel;
+            if (impresoraDestino != null && impresoraDestino.equalsIgnoreCase("Faro")) {
+                targetChannel = printFaroChannel;
+            } else {
+                targetChannel = printIsabellaChannel;
+            }
+            
+            redisTemplate.convertAndSend(targetChannel, json);
+            log.info("Ticket de cuenta publicado en canal: {} (destino: {})", targetChannel, impresoraDestino);
+        } catch (Exception e) {
+            log.error("Error al publicar ticket de cuenta para impresión", e);
+        }
+    }
+
+    public void publicarTicketCocinaImpresion(UUID comandaId, String codigo, String mesa, String nombreSala, String camarero,
+            Integer numeroRonda, List<CocinaTicketItem> items) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("id", UUID.randomUUID().toString());
+            data.put("type", "TICKET_COCINA");
+            data.put("printer", cocinaPrinterName);
+            data.put("comandaId", comandaId.toString());
+            data.put("codigo", codigo);
+            data.put("mesa", mesa);
+            data.put("sala", nombreSala);
+            data.put("camarero", camarero);
+            data.put("numeroRonda", numeroRonda);
+            data.put("timestamp", OffsetDateTime.now().toString());
+
+            ArrayNode itemsArray = objectMapper.createArrayNode();
+            for (var item : items) {
+                ObjectNode itemNode = objectMapper.createObjectNode();
+                itemNode.put("cantidad", item.cantidad());
+                itemNode.put("nombrePlato", item.nombrePlato());
+                itemNode.put("tipoRonda", item.tipoRonda());
+                itemNode.put("notas", item.notas());
+                itemsArray.add(itemNode);
+            }
+            data.set("items", itemsArray);
+
+            String json = data.toString();
+            redisTemplate.convertAndSend(printCocinaChannel, json);
+            log.info("Ticket de cocina publicado para imprimir en: {}", cocinaPrinterName);
+        } catch (Exception e) {
+            log.error("Error al publicar ticket de cocina para impresión", e);
+        }
+    }
+
+    public void publicarTicketBarraImpresion(UUID comandaId, String codigo, String mesa, String nombreSala, String camarero,
+            Integer numeroRonda, List<BarraTicketItem> items) {
+        try {
+            ObjectNode data = objectMapper.createObjectNode();
+            data.put("id", UUID.randomUUID().toString());
+            data.put("type", "TICKET_BARRA");
+            data.put("printer", barraPrinterName);
+            data.put("sala", nombreSala);
+            data.put("comandaId", comandaId.toString());
+            data.put("codigo", codigo);
+            data.put("mesa", mesa);
+            data.put("camarero", camarero);
+            data.put("numeroRonda", numeroRonda);
+            data.put("timestamp", OffsetDateTime.now().toString());
+
+            ArrayNode itemsArray = objectMapper.createArrayNode();
+            for (var item : items) {
+                ObjectNode itemNode = objectMapper.createObjectNode();
+                itemNode.put("cantidad", item.cantidad());
+                itemNode.put("nombrePlato", item.nombrePlato());
+                itemNode.put("tipoRonda", item.tipoRonda());
+                itemNode.put("notas", item.notas());
+                itemsArray.add(itemNode);
+            }
+            data.set("items", itemsArray);
+
+            String json = data.toString();
+            redisTemplate.convertAndSend(printBarraChannel, json);
+            log.info("Ticket de barra publicado para imprimir en: {}", barraPrinterName);
+        } catch (Exception e) {
+            log.error("Error al publicar ticket de barra para impresión", e);
+        }
+    }
+
+    public record CocinaTicketItem(Integer cantidad, String nombrePlato, String tipoRonda, String notas) {}
+
+    public record BarraTicketItem(Integer cantidad, String nombrePlato, String tipoRonda, String notas) {}
 }

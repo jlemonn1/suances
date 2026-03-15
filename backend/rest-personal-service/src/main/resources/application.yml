@@ -37,6 +37,15 @@ app:
     password: ${ADMIN_PASSWORD:admin123}
     create-on-startup: ${CREATE_ADMIN_USER:true}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
 logging:
   level:
     root: INFO

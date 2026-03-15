@@ -1,0 +1,116 @@
+services:
+  # ==================== CARTA SERVICE ====================
+  carta-service:
+    image: suances/carta-service:local
+    container_name: carta-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - DB_HOST=postgres-carta
+      - DB_PORT=5432
+      - DB_NAME=${CARTA_DB:-carta}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+    networks:
+      - suances-network
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/api/carta/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== PERSONAL SERVICE ====================
+  personal-service:
+    image: suances/personal-service:local
+    container_name: personal-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - DB_HOST=postgres-personal
+      - DB_PORT=5432
+      - DB_NAME=${PERSONAL_DB:-personal}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - CREATE_ADMIN_USER=${CREATE_ADMIN_USER:-true}
+    networks:
+      - suances-network
+    ports:
+      - "8085:8085"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/api/personal/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== RESERVA SERVICE ====================
+  reserva-service:
+    image: suances/reserva-service:local
+    container_name: reserva-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-reservas:5432/${RESERVAS_DB:-reservas}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - APP_JWT_SECRET=${JWT_SECRET:-SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+      - APP_JWT_ISSUER=${JWT_ISSUER:-personnel-service}
+      - APP_JWT_AUDIENCE=${JWT_AUDIENCE:-reservas-service}
+      - APP_SERVICE_TOKEN=${SERVICE_TOKEN:-suances-service-token}
+    networks:
+      - suances-network
+    ports:
+      - "8087:8087"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8087/api/reservas/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== SALA SERVICE ====================
+  sala-service:
+    image: suances/sala-service:local
+    container_name: sala-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-sala:5432/${SALA_DB:-sala}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - APP_JWT_SECRET=${JWT_SECRET:-SuperSecretKeyQueEsMuyLargaYSegura2024ParaProduccion}
+      - APP_JWT_ISSUER=${JWT_ISSUER:-personnel-service}
+      - APP_JWT_AUDIENCE=${JWT_AUDIENCE:-sala-service,reservas-service}
+      - APP_SERVICE_TOKEN=${SERVICE_TOKEN:-suances-service-token}
+      - APP_RESERVAS_URL=http://reserva-service:8087/api/reservas
+      - APP_CARTA_URL=http://carta-service:8081/api/carta
+    networks:
+      - suances-network
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/api/sala/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+networks:
+  suances-network:
+    external: true
+    name: suances-network

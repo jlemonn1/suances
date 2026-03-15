@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 import { CartaPublicaScreen } from '../screens/staff/CartaPublicaScreen';
 import { PerfilScreen } from '../screens/staff/PerfilScreen';
@@ -10,6 +11,7 @@ import { SalaScreen } from '../screens/staff/SalaScreen';
 import { ComandaDetailScreen } from '../screens/staff/ComandaDetailScreen';
 import { CobroScreen } from '../screens/staff/CobroScreen';
 import { TicketScreen } from '../screens/staff/TicketScreen';
+import { SalaEnVivoScreen } from '../screens/owner/SalaEnVivoScreen';
 
 import { colors, spacing, typography } from '../theme';
 import { useSalaStore } from '../store/salaStore';
@@ -30,7 +32,25 @@ const SalaStackNavigator = () => {
       <SalaStack.Screen name="ComandaDetail" component={ComandaDetailScreen} />
       <SalaStack.Screen name="Ticket" component={TicketScreen} />
       <SalaStack.Screen name="Cobro" component={CobroScreen} />
+      <SalaStack.Screen name="SalaEnVivo" component={SalaEnVivoScreen} />
     </SalaStack.Navigator>
+  );
+};
+
+// Botón personalizado para el tab de Sala con long press
+const SalaTabButton = (props: any) => {
+  const navigation = useNavigation<any>();
+  
+  const handleLongPress = () => {
+    navigation.navigate('Sala', { screen: 'SalaEnVivo' });
+  };
+  
+  return (
+    <TouchableOpacity
+      {...props}
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+    />
   );
 };
 
@@ -85,7 +105,8 @@ export const StaffNavigator = () => {
         component={SalaStackNavigator}
         options={{ 
           headerTitle: () => <HeaderTitle title="Sala" />,
-          title: 'Sala' 
+          title: 'Sala',
+          tabBarButton: (props) => <SalaTabButton {...props} />
         }}
       />
       <Tab.Screen 

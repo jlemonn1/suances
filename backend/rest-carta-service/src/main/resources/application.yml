@@ -33,6 +33,15 @@ app:
     stream-output: carta.events
     group: carta-group
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
 logging:
   level:
     root: INFO

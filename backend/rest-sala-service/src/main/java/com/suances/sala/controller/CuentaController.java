@@ -37,8 +37,11 @@ public class CuentaController {
 
     @PostMapping("/cerrar")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
-    public ResponseEntity<TicketCobroResponse> cerrarCuenta(@PathVariable UUID comandaId) {
-        TicketCobroResponse ticket = cuentaService.cerrarCuenta(comandaId);
+    public ResponseEntity<TicketCobroResponse> cerrarCuenta(
+            @PathVariable UUID comandaId,
+            @RequestBody(required = false) Map<String, String> request) {
+        String impresora = request != null ? request.get("impresora") : null;
+        TicketCobroResponse ticket = cuentaService.cerrarCuenta(comandaId, impresora);
         return ResponseEntity.ok(ticket);
     }
 
@@ -94,9 +97,36 @@ public class CuentaController {
 
     @PostMapping("/ticket/reenviar")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
-    public ResponseEntity<Void> reenviarTicket(@PathVariable UUID comandaId) {
-        // TODO: Implementar integración con servicio de impresión
-        log.info("[CuentaController] Solicitud de reenvío de ticket para comanda: {}", comandaId);
+    public ResponseEntity<Void> reenviarTicket(
+            @PathVariable UUID comandaId,
+            @RequestBody Map<String, String> request) {
+        String impresora = request.get("impresora");
+        if (impresora == null || impresora.isEmpty()) {
+            throw new IllegalArgumentException("Debe especificar la impresora");
+        }
+        try {
+            cuentaService.reenviarTicket(comandaId, impresora);
+            log.info("[CuentaController] Ticket reenviado para comanda: {} a impresora: {}", comandaId, impresora);
+        } catch (Exception e) {
+            log.error("[CuentaController] Error al reenviar ticket: {}", e.getMessage());
+            throw e;
+        }
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reimprimir")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
+    public ResponseEntity<Void> reimprimirTicket(
+            @PathVariable UUID comandaId,
+            @RequestBody Map<String, String> request) {
+        String impresora = request.get("impresora");
+        log.info("[CuentaController] Reimprimir ticket para comanda: {} a impresora: {}", comandaId, impresora);
+        try {
+            cuentaService.reimprimirTicketSimple(comandaId, impresora);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("[CuentaController] Error al reimprimir: {}", e.getMessage());
+            throw e;
+        }
     }
 }

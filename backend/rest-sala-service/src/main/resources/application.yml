@@ -28,7 +28,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
 
 app:
   jwt:
@@ -49,6 +52,17 @@ app:
     stream-carta-input: ${APP_REDIS_STREAM_CARTA_INPUT:carta.events}
     stream-output: ${APP_REDIS_STREAM_OUTPUT:sala.events}
     consumer-group: ${APP_REDIS_CONSUMER_GROUP:sala-group}
+    print-channel: ${APP_REDIS_PRINT_CHANNEL:print/ticket}
+    print-cocina-channel: ${APP_REDIS_PRINT_COCINA_CHANNEL:print/cocina}
+    print-barra-channel: ${APP_REDIS_PRINT_BARRA_CHANNEL:print/barra}
+    print-isabella-channel: ${APP_REDIS_PRINT_ISABELLA_CHANNEL:print/ticket-isabella}
+    print-faro-channel: ${APP_REDIS_PRINT_FARO_CHANNEL:print/ticket-faro}
+
+  printer:
+    isabella-name: ${APP_PRINTER_ISABELLA_NAME:Isabella}
+    faro-name: ${APP_PRINTER_FARO_NAME:Faro}
+    cocina-name: ${APP_PRINTER_COCINA_NAME:Cocina}
+    barra-name: ${APP_PRINTER_BARRA_NAME:Barra}
   comanda:
     tiempo-maximo-preparacion-minutos: ${APP_COMANDA_TIEMPO_MAXIMO:45}
     auto-cierre-cuenta-minutos: ${APP_COMANDA_AUTO_CIERRE:180}

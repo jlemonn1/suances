@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # ==================== CARTA SERVICE ====================
+  carta-service:
+    image: ${DOCKER_HUB_USER:-suances}/carta-service:${VERSION:-latest}
+    container_name: carta-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_HOST=postgres-carta
+      - DB_PORT=5432
+      - DB_NAME=${CARTA_DB:-carta}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      postgres-carta:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suances-network
+    expose:
+      - "8081"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/api/carta/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== PERSONAL SERVICE ====================
+  personal-service:
+    image: ${DOCKER_HUB_USER:-suances}/personal-service:${VERSION:-latest}
+    container_name: personal-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - DB_HOST=postgres-personal
+      - DB_PORT=5432
+      - DB_NAME=${PERSONAL_DB:-personal}
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - CREATE_ADMIN_USER=${CREATE_ADMIN_USER:-false}
+    depends_on:
+      postgres-personal:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suances-network
+    expose:
+      - "8085"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/api/personal/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== RESERVA SERVICE ====================
+  reserva-service:
+    image: ${DOCKER_HUB_USER:-suances}/reserva-service:${VERSION:-latest}
+    container_name: reserva-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-reservas:5432/${RESERVAS_DB:-reservas}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - APP_JWT_SECRET=${JWT_SECRET}
+      - APP_JWT_ISSUER=${JWT_ISSUER:-personnel-service}
+      - APP_JWT_AUDIENCE=${JWT_AUDIENCE:-reservas-service}
+      - APP_SERVICE_TOKEN=${SERVICE_TOKEN}
+    depends_on:
+      postgres-reservas:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suances-network
+    expose:
+      - "8087"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8087/api/reservas/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== SALA SERVICE ====================
+  sala-service:
+    image: ${DOCKER_HUB_USER:-suances}/sala-service:${VERSION:-latest}
+    container_name: sala-service
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-sala:5432/${SALA_DB:-sala}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - APP_JWT_SECRET=${JWT_SECRET}
+      - APP_JWT_ISSUER=${JWT_ISSUER:-personnel-service}
+      - APP_JWT_AUDIENCE=${JWT_AUDIENCE:-sala-service,reservas-service}
+      - APP_SERVICE_TOKEN=${SERVICE_TOKEN}
+      - APP_RESERVAS_URL=http://reserva-service:8087/api/reservas
+      - APP_CARTA_URL=http://carta-service:8081/api/carta
+    depends_on:
+      postgres-sala:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suances-network
+    expose:
+      - "8083"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/api/sala/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+
+  # ==================== NGINX ====================
+  nginx:
+    image: nginx:alpine
+    container_name: suances-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - carta-service
+      - personal-service
+      - reserva-service
+      - sala-service
+    networks:
+      - suances-network
+
+networks:
+  suances-network:
+    external: true
+    name: suances-network

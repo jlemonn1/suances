@@ -13,6 +13,7 @@ import com.suances.sala.repository.ComandaRepository;
 import com.suances.sala.repository.ItemComandaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,15 @@ import java.util.stream.Collectors;
 public class CuentaService {
 
     private static final Logger log = LoggerFactory.getLogger(CuentaService.class);
+
+    @Value("${app.redis.printer-name:POSIFLEX PP-6900}")
+    private String printerName;
+
+    @Value("${app.printer.isabella-name:Isabella}")
+    private String isabellaPrinterName;
+
+    @Value("${app.printer.faro-name:Faro}")
+    private String faroPrinterName;
 
     private final ComandaRepository comandaRepository;
     private final ItemComandaRepository itemComandaRepository;
@@ -49,13 +59,15 @@ public class CuentaService {
     }
 
     @Transactional
-    public TicketCobroResponse cerrarCuenta(UUID comandaId) {
+    public TicketCobroResponse cerrarCuenta(UUID comandaId, String impresoraDestino) {
         Comanda comanda = comandaRepository.findById(comandaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
 
-        // Validar estado
-        if (comanda.getEstado() != ComandaEstado.SERVIDA && comanda.getEstado() != ComandaEstado.EN_PREPARACION) {
-            throw new BusinessRuleException("La comanda debe estar en estado SERVIDA o EN_PREPARACION para cerrar la cuenta");
+        // Validar estado - permitir cerrar cuenta si está ABIERTA, EN_PREPARACION o SERVIDA
+        if (comanda.getEstado() != ComandaEstado.ABIERTA && 
+            comanda.getEstado() != ComandaEstado.SERVIDA && 
+            comanda.getEstado() != ComandaEstado.EN_PREPARACION) {
+            throw new BusinessRuleException("La comanda debe estar en estado ABIERTA, SERVIDA o EN_PREPARACION para cerrar la cuenta");
         }
 
         // Recalcular total por si acaso
@@ -93,8 +105,47 @@ public class CuentaService {
         // Generar y publicar ticket de cobro
         TicketCobroResponse ticket = generarTicketCobro(saved);
         eventProducer.publicarCuentaCerrada(saved, ticket);
+        // Use provided printer or default to Isabella
+        String impresora = impresoraDestino != null ? impresoraDestino : isabellaPrinterName;
+        eventProducer.publicarTicketCuentaImpresion(ticket, impresora);
 
         return ticket;
+    }
+
+    @Transactional(readOnly = true)
+    public void reenviarTicket(UUID comandaId, String impresoraDestino) {
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        // Validate that account is closed
+        if (comanda.getEstado() != ComandaEstado.CUENTA && comanda.getEstado() != ComandaEstado.COBRADA) {
+            throw new BusinessRuleException("Solo se pueden reimprimir tickets de comandas cerradas o cobradas");
+        }
+
+        // Generate ticket
+        TicketCobroResponse ticket = generarTicketCobro(comanda);
+
+        // Validate printer name
+        if (impresoraDestino == null || 
+            (!impresoraDestino.equalsIgnoreCase(isabellaPrinterName) && 
+             !impresoraDestino.equalsIgnoreCase(faroPrinterName))) {
+            throw new IllegalArgumentException("Impresora no válida. Use: " + isabellaPrinterName + " o " + faroPrinterName);
+        }
+
+        // Publish to print
+        eventProducer.publicarTicketCuentaImpresion(ticket, impresoraDestino);
+        log.info("Ticket reenviado para comanda: {} a impresora: {}", comandaId, impresoraDestino);
+    }
+
+    public void reimprimirTicketSimple(UUID comandaId, String impresoraDestino) {
+        Comanda comanda = comandaRepository.findById(comandaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Comanda no encontrada: " + comandaId));
+
+        log.info("[reimprimirTicketSimple] Comanda {} en estado {}", comandaId, comanda.getEstado());
+
+        TicketCobroResponse ticket = generarTicketCobro(comanda);
+        eventProducer.publicarTicketCuentaImpresion(ticket, impresoraDestino);
+        log.info("Ticket reimpreso para comanda: {} a impresora: {}", comandaId, impresoraDestino);
     }
 
     @Transactional

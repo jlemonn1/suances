@@ -13,8 +13,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { useSalaStore } from '../../store/salaStore';
+import { Button } from '../../components/common';
+import { CompactHeader, CompactCard, SummaryRow } from '../../components/payment';
+import { ModalSelectorImpresora } from '../../components/comanda/ModalSelectorImpresora';
 
-// Datos del restaurante (inventados)
+// Datos del restaurante
 const RESTAURANTE = {
   nombre: 'RESTAURANTE SUANCES',
   direccion: 'Av. de la Constitución, 25',
@@ -31,6 +34,8 @@ export const TicketScreen: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [imprimiendo, setImprimiendo] = useState(false);
+  const [modalImpresoraVisible, setModalImpresoraVisible] = useState(false);
+  const [accionPendiente, setAccionPendiente] = useState<'cerrar' | 'reenviar' | null>(null);
   
   const { 
     comandaConRondas, 
@@ -60,18 +65,30 @@ export const TicketScreen: React.FC = () => {
     }, 0);
   };
 
-  const handleImprimir = async () => {
-    if (modo === 'cerrar') {
+  const handleImprimir = () => {
+    // Si la cuenta ya está cerrada, siempre es reenviar (reimpresión)
+    if (esCuentaCerrada) {
+      setAccionPendiente('reenviar');
+    } else {
+      setAccionPendiente(modo === 'cerrar' ? 'cerrar' : 'reenviar');
+    }
+    setModalImpresoraVisible(true);
+  };
+
+  const handleSeleccionarImpresora = async (impresora: string) => {
+    setModalImpresoraVisible(false);
+    
+    if (accionPendiente === 'cerrar') {
       setImprimiendo(true);
       try {
-        await cerrarComanda(comandaId);
+        await cerrarComanda(comandaId, impresora);
         Alert.alert(
           'Cuenta Cerrada',
-          'Ticket impreso. La mesa está lista para cobrar.',
+          `Ticket impreso en ${impresora}. La mesa está lista para cobrar.`,
           [
             {
               text: 'Cobrar Ahora',
-              onPress: () => navigation.replace('Cobro', { comandaId }),
+              onPress: () => navigation.replace('Cobro', { comandaId, total }),
             },
             {
               text: 'Volver a Mesas',
@@ -84,26 +101,29 @@ export const TicketScreen: React.FC = () => {
       } finally {
         setImprimiendo(false);
       }
-    } else {
+    } else if (accionPendiente === 'reenviar') {
       try {
-        await reenviarTicket(comandaId);
-        Alert.alert('Éxito', 'Ticket reimpreso');
+        await reenviarTicket(comandaId, impresora);
+        Alert.alert('Éxito', `Ticket reimpreso en ${impresora}`);
       } catch (error: any) {
         Alert.alert('Error', error.message || 'No se pudo reimprimir');
       }
     }
+    
+    setAccionPendiente(null);
   };
 
   const handleCobrar = () => {
-    navigation.navigate('Cobro', { comandaId });
+    navigation.navigate('Cobro', { comandaId, total });
   };
 
   if (loading || !comandaConRondas) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <CompactHeader title="Ticket" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Cargando...</Text>
+          <Text style={styles.loadingText}>Cargando ticket...</Text>
         </View>
       </SafeAreaView>
     );
@@ -114,140 +134,170 @@ export const TicketScreen: React.FC = () => {
   const esCuentaCerrada = comandaConRondas.estado === 'CUENTA';
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={28} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {esCuentaCerrada ? 'Ticket' : 'Cerrar Cuenta'}
-        </Text>
-        <View style={styles.headerButton} />
-      </View>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <CompactHeader 
+        title={esCuentaCerrada ? 'Ticket' : 'Cerrar Cuenta'}
+        subtitle={`Mesa ${mesaNumero} · ${codigo}`}
+      />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Ticket */}
-        <View style={styles.ticketContainer}>
-          {/* Cabecera */}
-          <View style={styles.ticketHeader}>
-            <Text style={styles.restaurantName}>{RESTAURANTE.nombre}</Text>
-            <Text style={styles.restaurantInfo}>{RESTAURANTE.direccion}</Text>
-            <Text style={styles.restaurantInfo}>{RESTAURANTE.ciudad} - {RESTAURANTE.cp}</Text>
-            <Text style={styles.restaurantInfo}>Tel: {RESTAURANTE.telefono}</Text>
-            <Text style={styles.restaurantInfo}>CIF: {RESTAURANTE.cif}</Text>
-            
-            <View style={styles.divider} />
-            
-            <View style={styles.ticketMeta}>
-              <Text style={styles.metaText}>Mesa: <Text style={styles.metaValue}>{mesaNumero}</Text></Text>
-              <Text style={styles.metaText}>Comanda: <Text style={styles.metaValue}>{codigo}</Text></Text>
-              <Text style={styles.metaText}>Camarero: <Text style={styles.metaValue}>{camareroNombre || '-'}</Text></Text>
-              <Text style={styles.metaText}>Fecha: <Text style={styles.metaValue}>
-                {new Date(fechaApertura).toLocaleString('es-ES')}
-              </Text></Text>
-            </View>
-            
-            <View style={styles.divider} />
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Info del Restaurante */}
+        <CompactCard style={styles.restaurantCard} padding="sm">
+          <Text style={styles.restaurantName}>{RESTAURANTE.nombre}</Text>
+          <View style={styles.restaurantInfo}>
+            <Text style={styles.restaurantInfoText}>{RESTAURANTE.direccion}</Text>
+            <Text style={styles.restaurantInfoText}>{RESTAURANTE.ciudad}, {RESTAURANTE.cp}</Text>
+            <Text style={styles.restaurantInfoText}>Tel: {RESTAURANTE.telefono}</Text>
+          </View>
+        </CompactCard>
+
+        {/* Info de la Comanda */}
+        <CompactCard style={styles.infoCard} padding="sm">
+          <SummaryRow label="Mesa" value={`#${mesaNumero}`} variant="emphasis" />
+          <SummaryRow label="Comanda" value={codigo} />
+          <SummaryRow label="Camarero" value={camareroNombre || '-'} />
+          <SummaryRow 
+            label="Fecha" 
+            value={new Date(fechaApertura).toLocaleString('es-ES', { 
+              day: '2-digit', 
+              month: '2-digit', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })} 
+          />
+        </CompactCard>
+
+        {/* Items por Ronda */}
+        <CompactCard style={styles.itemsCard} padding="sm">
+          <Text style={styles.sectionTitle}>Detalle</Text>
+          
+          {/* Header de tabla */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableCell, styles.colCantidad]}>CANT</Text>
+            <Text style={[styles.tableCell, styles.colProducto]}>PRODUCTO</Text>
+            <Text style={[styles.tableCell, styles.colPrecio]}>TOTAL</Text>
           </View>
 
-          {/* Items */}
-          <View style={styles.itemsContainer}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableCell, styles.tableCellCantidad]}>UD</Text>
-              <Text style={[styles.tableCell, styles.tableCellProducto]}>PRODUCTO</Text>
-              <Text style={[styles.tableCell, styles.tableCellPrecio]}>PRECIO</Text>
-            </View>
-
-            {rondas.map((ronda) => {
-              const itemsValidos = ronda.pedidos.filter(p => p.estado !== 'CANCELADO');
-              if (itemsValidos.length === 0) return null;
-              
-              return (
-                <View key={ronda.numeroRonda}>
-                  <Text style={styles.rondaTitle}>Ronda {ronda.numeroRonda}</Text>
-                  {itemsValidos.map((item) => (
-                    <View key={item.id} style={styles.itemRow}>
-                      <Text style={[styles.tableCell, styles.tableCellCantidad]}>
-                        {item.cantidad}
-                      </Text>
-                      <View style={[styles.tableCell, styles.tableCellProducto]}>
-                        <Text style={styles.itemNombre}>{item.nombrePlato}</Text>
-                        {item.notas && <Text style={styles.itemNotas}>{item.notas}</Text>}
-                      </View>
-                      <Text style={[styles.tableCell, styles.tableCellPrecio]}>
-                        {item.subtotal?.toFixed(2)}€
-                      </Text>
-                    </View>
-                  ))}
+          {rondas.map((ronda) => {
+            const itemsValidos = ronda.pedidos.filter(p => p.estado !== 'CANCELADO');
+            if (itemsValidos.length === 0) return null;
+            
+            return (
+              <View key={ronda.numeroRonda}>
+                <View style={styles.rondaHeader}>
+                  <View style={styles.rondaBadge}>
+                    <Text style={styles.rondaText}>R{ronda.numeroRonda}</Text>
+                  </View>
                 </View>
-              );
-            })}
-          </View>
+                {itemsValidos.map((item) => (
+                  <View key={item.id} style={styles.itemRow}>
+                    <Text style={[styles.itemCell, styles.colCantidad]}>
+                      {item.cantidad}x
+                    </Text>
+                    <View style={[styles.itemCell, styles.colProducto]}>
+                      <Text style={styles.itemNombre} numberOfLines={1}>
+                        {item.nombrePlato}
+                      </Text>
+                      {item.notas && (
+                        <Text style={styles.itemNotas} numberOfLines={1}>
+                          {item.notas}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.itemCell, styles.colPrecio]}>
+                      {item.subtotal?.toFixed(2)}€
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })}
+        </CompactCard>
 
-          {/* Totales */}
-          <View style={styles.totalesContainer}>
-            <View style={styles.divider} />
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>SUBTOTAL</Text>
-              <Text style={styles.totalValue}>{total.toFixed(2)} €</Text>
-            </View>
-            <View style={[styles.totalRow, styles.totalFinal]}>
-              <Text style={styles.totalLabelFinal}>TOTAL</Text>
-              <Text style={styles.totalValueFinal}>{total.toFixed(2)} €</Text>
-            </View>
-            <View style={styles.divider} />
-            <Text style={styles.ticketFooter}>Gracias por su visita</Text>
-          </View>
+        {/* Totales */}
+        <CompactCard style={styles.totalsCard} padding="sm">
+          <SummaryRow 
+            label="Subtotal" 
+            value={`${total.toFixed(2)} €`} 
+          />
+          <SummaryRow 
+            label="TOTAL" 
+            value={`${total.toFixed(2)} €`} 
+            variant="total" 
+            showBorder 
+          />
+        </CompactCard>
+
+        {/* Footer del Ticket */}
+        <View style={styles.ticketFooter}>
+          <Text style={styles.footerText}>Gracias por su visita</Text>
+          <Text style={styles.footerCif}>CIF: {RESTAURANTE.cif}</Text>
         </View>
 
-        <View style={{ height: 100 }} />
+        {/* Espacio para FAB */}
+        <View style={styles.fabSpace} />
       </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        {esCuentaCerrada ? (
-          // Cuenta ya cerrada - opciones: Reimprimir o Cobrar
-          <View style={styles.buttonRow}>
+      {/* Floating Action Button - Imprimir */}
+      {!esCuentaCerrada && (
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={handleImprimir}
+            disabled={imprimiendo}
+            activeOpacity={0.8}
+          >
+            {imprimiendo ? (
+              <ActivityIndicator size="small" color={colors.surface} />
+            ) : (
+              <>
+                <Ionicons name="print-outline" size={18} color={colors.surface} />
+                <Text style={styles.fabText}>Imprimir</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Footer para cuenta cerrada */}
+      {esCuentaCerrada && (
+        <View style={styles.footer}>
+          <View style={styles.footerContent}>
             <TouchableOpacity 
-              style={[styles.actionButton, styles.secondaryButton]}
+              style={styles.footerSecondaryButton}
               onPress={handleImprimir}
             >
-              <Ionicons name="print-outline" size={20} color={colors.primary} />
-              <Text style={styles.secondaryButtonText}>Reimprimir</Text>
+              <Ionicons name="print-outline" size={18} color={colors.primary} />
+              <Text style={styles.footerSecondaryText}>Reimprimir</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.actionButton, styles.primaryButton]}
+              style={styles.footerPrimaryButton}
               onPress={handleCobrar}
             >
-              <Ionicons name="card-outline" size={20} color={colors.surface} />
-              <Text style={styles.primaryButtonText}>Cobrar</Text>
+              <Ionicons name="card-outline" size={18} color={colors.surface} />
+              <Text style={styles.footerPrimaryText}>Cobrar</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          // Modo cerrar cuenta
-          <>
-            <Text style={styles.footerNote}>
-              Al imprimir se cerrará la cuenta
-            </Text>
-            <TouchableOpacity 
-              style={[styles.imprimirButton, imprimiendo && styles.imprimirButtonDisabled]}
-              onPress={handleImprimir}
-              disabled={imprimiendo}
-            >
-              {imprimiendo ? (
-                <ActivityIndicator color={colors.surface} />
-              ) : (
-                <>
-                  <Ionicons name="print-outline" size={24} color={colors.surface} />
-                  <Text style={styles.imprimirButtonText}>Imprimir Ticket</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+        </View>
+      )}
+
+      <ModalSelectorImpresora
+        visible={modalImpresoraVisible}
+        onClose={() => {
+          setModalImpresoraVisible(false);
+          setAccionPendiente(null);
+        }}
+        onSelect={handleSeleccionarImpresora}
+        titulo={accionPendiente === 'cerrar' ? 'Imprimir Cuenta' : 'Reimprimir Ticket'}
+        subtitulo={accionPendiente === 'cerrar' 
+          ? '¿Dónde desea imprimir la cuenta?' 
+          : '¿Dónde desea reimprimir el ticket?'}
+      />
     </SafeAreaView>
   );
 };
@@ -263,79 +313,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
     color: colors.textSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+    ...typography.body,
   },
   content: {
     flex: 1,
   },
-  ticketContainer: {
-    backgroundColor: colors.surface,
-    margin: spacing.md,
-    padding: spacing.lg,
-    borderRadius: borderRadius.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  scrollContent: {
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
-  ticketHeader: {
+  restaurantCard: {
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   restaurantName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...typography.h3,
     color: colors.text,
-    marginBottom: spacing.xs,
+    fontWeight: '700',
   },
   restaurantInfo: {
-    fontSize: 11,
+    marginTop: spacing.xs,
+    alignItems: 'center',
+  },
+  restaurantInfoText: {
+    ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 16,
   },
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.md,
+  infoCard: {
+    gap: 2,
   },
-  ticketMeta: {
-    width: '100%',
-    gap: 4,
+  itemsCard: {
+    flex: 1,
   },
-  metaText: {
-    fontSize: 12,
+  sectionTitle: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
-  },
-  metaValue: {
-    color: colors.text,
-    fontWeight: '500',
-  },
-  itemsContainer: {
-    marginBottom: spacing.md,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
   },
   tableHeader: {
     flexDirection: 'row',
@@ -345,141 +362,143 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tableCell: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     fontWeight: '600',
-  },
-  tableCellCantidad: {
-    width: 40,
-    textAlign: 'center',
-  },
-  tableCellProducto: {
-    flex: 1,
-  },
-  tableCellPrecio: {
-    width: 60,
-    textAlign: 'right',
-  },
-  rondaTitle: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    textTransform: 'uppercase',
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 4,
   },
+  itemCell: {
+    ...typography.bodySmall,
+    color: colors.text,
+  },
+  colCantidad: {
+    width: 45,
+    textAlign: 'center',
+  },
+  colProducto: {
+    flex: 1,
+  },
+  colPrecio: {
+    width: 55,
+    textAlign: 'right',
+    fontWeight: '600',
+  },
+  rondaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    marginBottom: 2,
+  },
+  rondaBadge: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  rondaText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 10,
+  },
   itemNombre: {
-    fontSize: 13,
+    ...typography.bodySmall,
     color: colors.text,
   },
   itemNotas: {
-    fontSize: 10,
+    ...typography.caption,
     color: colors.textSecondary,
     fontStyle: 'italic',
   },
-  totalesContainer: {
-    marginTop: spacing.sm,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  totalLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  totalValue: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  totalFinal: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  totalLabelFinal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  totalValueFinal: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.success,
+  totalsCard: {
+    gap: 2,
   },
   ticketFooter: {
-    textAlign: 'center',
-    fontSize: 12,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  footerText: {
+    ...typography.body,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
+  },
+  footerCif: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  fabSpace: {
+    height: 80,
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    right: spacing.lg,
+    zIndex: 100,
+  },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    gap: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  fabText: {
+    ...typography.bodySmall,
+    color: colors.surface,
+    fontWeight: '600',
   },
   footer: {
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    padding: spacing.md,
+    padding: spacing.sm,
+    paddingBottom: spacing.md,
   },
-  buttonRow: {
+  footerContent: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  actionButton: {
+  footerSecondaryButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  secondaryButton: {
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.primary,
+    gap: spacing.xs,
   },
-  secondaryButtonText: {
+  footerSecondaryText: {
+    ...typography.bodySmall,
     color: colors.primary,
-    fontSize: 16,
     fontWeight: '600',
   },
-  primaryButton: {
-    backgroundColor: colors.success,
-  },
-  primaryButtonText: {
-    color: colors.surface,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footerNote: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  imprimirButton: {
-    backgroundColor: colors.success,
+  footerPrimaryButton: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
-    gap: spacing.sm,
+    backgroundColor: colors.success,
+    gap: spacing.xs,
   },
-  imprimirButtonDisabled: {
-    opacity: 0.6,
-  },
-  imprimirButtonText: {
+  footerPrimaryText: {
+    ...typography.bodySmall,
     color: colors.surface,
-    fontSize: 16,
     fontWeight: '600',
   },
 });

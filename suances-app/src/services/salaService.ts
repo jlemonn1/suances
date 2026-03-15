@@ -76,10 +76,12 @@ export const salaService = {
     return response.data;
   },
 
-  cerrarComanda: async (id: string): Promise<TicketResponse> => {
-    console.log('[salaService] cerrarComanda iniciado:', { id });
+  cerrarComanda: async (id: string, impresora?: string): Promise<TicketResponse> => {
+    console.log('[salaService] cerrarComanda iniciado:', { id, impresora });
     try {
-      const response = await salaApi.post<TicketResponse>(`/comandas/${id}/cuenta/cerrar`);
+      const response = await salaApi.post<TicketResponse>(`/comandas/${id}/cuenta/cerrar`, {
+        impresora: impresora || 'Isabella'
+      });
       console.log('[salaService] cerrarComanda respuesta:', response.status, response.data);
       return response.data;
     } catch (error: any) {
@@ -287,10 +289,12 @@ export const salaService = {
   },
 
   // Nuevos métodos para gestión de cuenta cerrada
-  reenviarTicket: async (comandaId: string): Promise<void> => {
-    console.log('[salaService] Reenviando ticket:', { comandaId });
+  reenviarTicket: async (comandaId: string, impresora: string): Promise<void> => {
+    console.log('[salaService] Reenviando ticket:', { comandaId, impresora });
     try {
-      await salaApi.post(`/comandas/${comandaId}/cuenta/ticket/reenviar`);
+      await salaApi.post(`/comandas/${comandaId}/cuenta/reimprimir`, {
+        impresora
+      });
       console.log('[salaService] Ticket reenviado exitosamente');
     } catch (error: any) {
       console.error('[salaService] Error al reenviar ticket:', error.message);

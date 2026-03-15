@@ -1,0 +1,22 @@
+{
+  "ubicacion": "todas",
+  "canales": [
+    "print/ticket-isabella",
+    "print/barra",
+    "print/cocina",
+    "print/ticket-faro"
+  ],
+  "redis": {
+    "host": "localhost",
+    "port": 6379
+  },
+  "printer": {
+    "name": "POSIFLEX PP-6900",
+    "type": "windows"
+  },
+  "logo": {
+    "enabled": true,
+    "isabella": "logo_isabella.jpeg",
+    "faro": "logo_faro.png"
+  }
+}

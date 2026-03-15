@@ -37,15 +37,18 @@ public class ItemComandaService {
     private final ComandaRepository comandaRepository;
     private final CartaSyncService cartaSyncService;
     private final SalaEventProducer salaEventProducer;
+    private final MesaOperativaService mesaOperativaService;
 
     public ItemComandaService(ItemComandaRepository itemComandaRepository, 
                               ComandaRepository comandaRepository,
                               CartaSyncService cartaSyncService,
-                              SalaEventProducer salaEventProducer) {
+                              SalaEventProducer salaEventProducer,
+                              MesaOperativaService mesaOperativaService) {
         this.itemComandaRepository = itemComandaRepository;
         this.comandaRepository = comandaRepository;
         this.cartaSyncService = cartaSyncService;
         this.salaEventProducer = salaEventProducer;
+        this.mesaOperativaService = mesaOperativaService;
     }
 
     @Transactional
@@ -283,6 +286,62 @@ public class ItemComandaService {
                     comandaId, numeroRonda, itemsEvent.size());
         });
 
+        // Separar items en Cocina y Barra para impresión
+        List<ItemComanda> itemsCocina = items.stream()
+                .filter(item -> {
+                    TipoRonda tipo = item.getTipoRonda();
+                    return tipo == TipoRonda.ENTRANTE || tipo == TipoRonda.PRIMERO 
+                        || tipo == TipoRonda.SEGUNDO || tipo == TipoRonda.POSTRE;
+                })
+                .collect(Collectors.toList());
+
+        List<ItemComanda> itemsBarra = items.stream()
+                .filter(item -> {
+                    TipoRonda tipo = item.getTipoRonda();
+                    return tipo == TipoRonda.BEBIDA || tipo == TipoRonda.SIN_ORDEN;
+                })
+                .collect(Collectors.toList());
+
+        // Obtener detalles de la comanda para impresión
+        var mesaOperativa = mesaOperativaService.obtenerMesa(comanda.getMesaId());
+        Integer mesaNumero = mesaOperativa.numero();
+        String nombreSala = mesaOperativa.nombreSala();
+        String camareroNombre = comanda.getCamareroNombre();
+
+        // Publicar evento de impresión para Cocina si hay items
+        if (!itemsCocina.isEmpty()) {
+            Integer numeroRonda = itemsCocina.get(0).getNumeroRonda();
+            List<SalaEventProducer.CocinaTicketItem> cocinaTicketItems = itemsCocina.stream()
+                    .map(item -> new SalaEventProducer.CocinaTicketItem(
+                            item.getCantidad(),
+                            item.getNombrePlato(),
+                            item.getTipoRonda().name(),
+                            item.getNotas()
+                    ))
+                    .collect(Collectors.toList());
+            salaEventProducer.publicarTicketCocinaImpresion(
+                    comandaId, comanda.getCodigo(), mesaNumero.toString(), nombreSala, camareroNombre, numeroRonda, cocinaTicketItems);
+            log.info("Evento impresión ticket cocina publicado para comanda={}, mesa={}, ronda={}", 
+                    comandaId, mesaNumero, numeroRonda);
+        }
+
+        // Publicar evento de impresión para Barra si hay items
+        if (!itemsBarra.isEmpty()) {
+            Integer numeroRonda = itemsBarra.get(0).getNumeroRonda();
+            List<SalaEventProducer.BarraTicketItem> barraTicketItems = itemsBarra.stream()
+                    .map(item -> new SalaEventProducer.BarraTicketItem(
+                            item.getCantidad(),
+                            item.getNombrePlato(),
+                            item.getTipoRonda().name(),
+                            item.getNotas()
+                    ))
+                    .collect(Collectors.toList());
+            salaEventProducer.publicarTicketBarraImpresion(
+                    comandaId, comanda.getCodigo(), mesaNumero.toString(), camareroNombre, nombreSala, numeroRonda, barraTicketItems);
+            log.info("Evento impresión ticket barra publicado para comanda={}, mesa={}, ronda={}", 
+                    comandaId, mesaNumero, numeroRonda);
+        }
+
         // Si la comanda está en estado ABIERTA, cambiarla a EN_PREPARACION
         if (comanda.getEstado() == ComandaEstado.ABIERTA) {
             comanda.setEstado(ComandaEstado.EN_PREPARACION);
@@ -388,6 +447,62 @@ public class ItemComandaService {
                     .info("Evento ronda enviada a cocina publicado para comanda={}, ronda={}, items={}", 
                             comandaId, numeroRonda, itemsEvent.size());
         });
+
+        // Separar items en Cocina y Barra para impresión
+        List<ItemComanda> itemsCocina = itemsGuardados.stream()
+                .filter(item -> {
+                    TipoRonda tipo = item.getTipoRonda();
+                    return tipo == TipoRonda.ENTRANTE || tipo == TipoRonda.PRIMERO 
+                        || tipo == TipoRonda.SEGUNDO || tipo == TipoRonda.POSTRE;
+                })
+                .collect(Collectors.toList());
+
+        List<ItemComanda> itemsBarra = itemsGuardados.stream()
+                .filter(item -> {
+                    TipoRonda tipo = item.getTipoRonda();
+                    return tipo == TipoRonda.BEBIDA || tipo == TipoRonda.SIN_ORDEN;
+                })
+                .collect(Collectors.toList());
+
+        // Obtener detalles de la comanda para impresión
+        var mesaOperativa = mesaOperativaService.obtenerMesa(comanda.getMesaId());
+        Integer mesaNumero = mesaOperativa.numero();
+        String nombreSala = mesaOperativa.nombreSala();
+        String camareroNombre = comanda.getCamareroNombre();
+
+        // Publicar evento de impresión para Cocina si hay items
+        if (!itemsCocina.isEmpty()) {
+            Integer numeroRonda = itemsCocina.get(0).getNumeroRonda();
+            List<SalaEventProducer.CocinaTicketItem> cocinaTicketItems = itemsCocina.stream()
+                    .map(item -> new SalaEventProducer.CocinaTicketItem(
+                            item.getCantidad(),
+                            item.getNombrePlato(),
+                            item.getTipoRonda().name(),
+                            item.getNotas()
+                    ))
+                    .collect(Collectors.toList());
+            salaEventProducer.publicarTicketCocinaImpresion(
+                    comandaId, comanda.getCodigo(), mesaNumero.toString(), nombreSala, camareroNombre, numeroRonda, cocinaTicketItems);
+            log.info("Evento impresión ticket cocina publicado para comanda={}, mesa={}, ronda={}", 
+                    comandaId, mesaNumero, numeroRonda);
+        }
+
+        // Publicar evento de impresión para Barra si hay items
+        if (!itemsBarra.isEmpty()) {
+            Integer numeroRonda = itemsBarra.get(0).getNumeroRonda();
+            List<SalaEventProducer.BarraTicketItem> barraTicketItems = itemsBarra.stream()
+                    .map(item -> new SalaEventProducer.BarraTicketItem(
+                            item.getCantidad(),
+                            item.getNombrePlato(),
+                            item.getTipoRonda().name(),
+                            item.getNotas()
+                    ))
+                    .collect(Collectors.toList());
+            salaEventProducer.publicarTicketBarraImpresion(
+                    comandaId, comanda.getCodigo(), mesaNumero.toString(), nombreSala, camareroNombre, numeroRonda, barraTicketItems);
+            log.info("Evento impresión ticket barra publicado para comanda={}, mesa={}, ronda={}", 
+                    comandaId, mesaNumero, numeroRonda);
+        }
 
         // Recalcular total de la comanda
         recalcularTotalComanda(comandaId);

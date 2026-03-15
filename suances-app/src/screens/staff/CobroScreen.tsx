@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   Modal,
 } from 'react-native';
@@ -13,35 +12,51 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Loading, Button } from '../../components/common';
+import { 
+  CompactHeader, 
+  CompactCard, 
+  SummaryRow, 
+  PaymentMethodSelector,
+  PaymentMethod,
+  AmountInput 
+} from '../../components/payment';
 import { colors, spacing, borderRadius, typography } from '../../theme';
 import { useSalaStore } from '../../store/salaStore';
 import { useAuthStore } from '../../store/authStore';
-import type { TipoPago, CuentaItem } from '../../types/sala';
+import type { TipoPago } from '../../types/sala';
 
-const METODOS_PAGO: { label: string; value: TipoPago; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: 'Efectivo', value: 'EFECTIVO', icon: 'cash-outline' },
-  { label: 'Tarjeta', value: 'TARJETA', icon: 'card-outline' },
-  { label: 'En Mesa', value: 'MESA', icon: 'swap-horizontal-outline' },
+// Tipos de propina sugeridos
+const PROPINA_OPCIONES = [
+  { label: 'Sin propina', value: 0 },
+  { label: '5%', value: 0.05 },
+  { label: '10%', value: 0.10 },
+  { label: 'Otro', value: -1 },
 ];
 
-const MONEDAS_SUGERIDAS = [10, 20, 50, 100];
+// Helper para parsear montos (soporta coma y punto)
+const parseAmount = (text: string): number => {
+  if (!text) return 0;
+  return parseFloat(text.replace(',', '.')) || 0;
+};
 
 export const CobroScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { comandaId } = route.params || {};
+  const { comandaId, total: totalFromParams } = route.params || {};
 
-  const [metodoPago, setMetodoPago] = useState<TipoPago>('TARJETA');
-  const [montoRecibido, setMontoRecibido] = useState('');
+  const [metodoPago, setMetodoPago] = useState<PaymentMethod>('TARJETA');
+  const [montoRecibido, setMontoRecibido] = useState<string | null>(null);
   const [propina, setPropina] = useState('');
+  const [propinaPorcentaje, setPropinaPorcentaje] = useState(0);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [numPagos, setNumPagos] = useState(2);
+  const [pagosCompletados, setPagosCompletados] = useState(0);
 
   const {
-    comandaActiva,
     cuenta,
     loadingCuenta,
     loadingAccion,
-    fetchComanda,
     fetchCuenta,
     cobrarComanda,
   } = useSalaStore();
@@ -51,29 +66,72 @@ export const CobroScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchComanda(comandaId);
       fetchCuenta(comandaId);
-    }, [comandaId, fetchComanda, fetchCuenta])
+    }, [comandaId, fetchCuenta])
   );
 
-  useEffect(() => {
-    if (cuenta?.total) {
-      setMontoRecibido(cuenta.total.toString());
-    }
-  }, [cuenta?.total]);
+  // Calcular el total base y valores derivados
+  const totalBase = cuenta?.total ?? totalFromParams ?? 0;
+  const cantidadPropina = parseAmount(propina);
+  const totalConPropina = totalBase + cantidadPropina;
 
-  const total = cuenta?.total || comandaActiva?.total || 0;
-  const monto = parseFloat(montoRecibido) || 0;
-  const montoPropina = parseFloat(propina) || 0;
-  const cambio = Math.max(0, monto - total);
+  // Inicializar monto cuando cambia el total (cuenta o params)
+  useEffect(() => {
+    if (totalBase > 0 && !montoRecibido) {
+      const montoInicial = showSplitModal && numPagos > 1 
+        ? (totalBase / numPagos) 
+        : totalBase;
+      setMontoRecibido(montoInicial.toFixed(2));
+    }
+  }, [totalBase]);
+
+  // Cuando cambia el número de pagos o modo split, recalcular monto
+  useEffect(() => {
+    if (totalBase > 0 && montoRecibido) {
+      const nuevoMonto = showSplitModal && numPagos > 1 
+        ? (totalConPropina / numPagos) 
+        : totalConPropina;
+      setMontoRecibido(nuevoMonto.toFixed(2));
+    }
+  }, [showSplitModal, numPagos]);
+
+  // Propina - calcular cuando cambia el porcentaje
+  useEffect(() => {
+    if (totalBase && cantidadPropina > 0) {
+      const montoPropina = totalBase * cantidadPropina;
+      setPropina(montoPropina.toFixed(2));
+    }
+  }, [cantidadPropina, totalBase]);
+
+  const total = totalBase;
+  const monto = parseAmount(montoRecibido || '');
+  const montoPorPago = numPagos > 0 ? totalConPropina / numPagos : totalConPropina;
+  const cambio = Math.max(0, monto - (showSplitModal ? montoPorPago : totalConPropina));
+
+  const handlePropinaSelect = (opcion: typeof PROPINA_OPCIONES[0]) => {
+    if (opcion.value === -1) {
+      // Modo manual
+      setPropinaPorcentaje(-1);
+      setPropina('');
+    } else if (opcion.value === 0) {
+      setPropinaPorcentaje(0);
+      setPropina('');
+    } else {
+      setPropinaPorcentaje(opcion.value);
+    }
+  };
 
   const handleCobrar = () => {
-    if (metodoPago === 'EFECTIVO' && monto < total) {
-      Alert.alert('Error', 'El monto recibido es menor que el total');
-      return;
-    }
+    const montoAConfirmar = showSplitModal ? montoPorPago : totalConPropina;
     
-    // Mostrar modal de confirmación según el método de pago
+    // Para tarjeta, siempre permitir (el terminal gestiona el monto)
+    // Para efectivo, verificar que el monto recibido sea suficiente
+    if (metodoPago === 'EFECTIVO') {
+      if (!montoRecibido || monto < montoAConfirmar) {
+        Alert.alert('Error', `El monto recibido es menor que el importe a cobrar (${montoAConfirmar.toFixed(2)}€)`);
+        return;
+      }
+    }
     setShowConfirmModal(true);
   };
 
@@ -81,201 +139,265 @@ export const CobroScreen: React.FC = () => {
     setShowConfirmModal(false);
     
     try {
+      // Para tarjeta, usar el totalConPropina como monto
+      // Para efectivo, usar el monto introducido (o el total si está vacío)
+      const montoAPagar = metodoPago === 'TARJETA' 
+        ? totalConPropina 
+        : (showSplitModal ? montoPorPago : (monto > 0 ? monto : totalConPropina));
+      
       const resultado = await cobrarComanda(comandaId, {
         tipoPago: metodoPago,
-        montoRecibido: monto,
-        propina: montoPropina > 0 ? montoPropina : undefined,
+        montoRecibido: montoAPagar,
+        propina: (!showSplitModal && cantidadPropina > 0) ? cantidadPropina : undefined,
       });
 
-      Alert.alert(
-        'Cobro completado',
-        `Cambio: ${(resultado.cambio || 0).toFixed(2)}€\nPropina: ${(resultado.propina || 0).toFixed(2)}€`,
-        [
-          {
-            text: 'Aceptar',
-            onPress: () => {
-              navigation.navigate('Sala');
+      if (showSplitModal) {
+        const nuevosPagos = pagosCompletados + 1;
+        setPagosCompletados(nuevosPagos);
+        
+        if (nuevosPagos >= numPagos) {
+          Alert.alert(
+            'Cobro completado',
+            `Se han realizado ${nuevosPagos} pagos por un total de ${totalConPropina.toFixed(2)}€`,
+            [{ text: 'Aceptar', onPress: () => navigation.replace('SalaMain') }]
+          );
+        } else {
+          Alert.alert(
+            'Pago registrado',
+            `${nuevosPagos} de ${numPagos} pagos completados\nFaltan: ${((totalConPropina) - (montoPorPago * nuevosPagos)).toFixed(2)}€`,
+            [{ text: 'Continuar', onPress: () => setMontoRecibido(montoPorPago.toFixed(2)) }]
+          );
+        }
+      } else {
+        const cambioReal = metodoPago === 'TARJETA' ? 0 : cambio;
+        Alert.alert(
+          'Cobro completado',
+          `Total: ${totalConPropina.toFixed(2)}€\n${cambioReal > 0 ? `Cambio: ${cambioReal.toFixed(2)}€\n` : ''}${cantidadPropina > 0 ? `Propina: ${cantidadPropina.toFixed(2)}€` : ''}`,
+          [
+            {
+              text: 'Aceptar',
+              onPress: () => navigation.replace('SalaMain'),
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Error al cobrar');
     }
   };
 
-  const handleMonedaSugerida = (valor: number) => {
-    setMontoRecibido((monto + valor).toString());
+  const handleMontoExacto = () => {
+    if (showSplitModal) {
+      setMontoRecibido(montoPorPago.toFixed(2));
+    } else {
+      setMontoRecibido(totalConPropina.toFixed(2));
+    }
   };
 
   if (loadingCuenta || !cuenta) {
-    return <Loading fullScreen message="Cargando cuenta..." />;
+    return (
+      <SafeAreaView style={styles.container} edges={['left', 'right']}>
+        <CompactHeader title="Cobro" />
+        <Loading fullScreen message="Cargando cuenta..." />
+      </SafeAreaView>
+    );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Cuenta</Text>
-          <Text style={styles.codigo}>{cuenta.codigo}</Text>
-          <Text style={styles.mesaInfo}>Mesa {cuenta.mesaNumero}</Text>
-        </View>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+      <CompactHeader 
+        title="Cobro"
+        subtitle={`Mesa ${cuenta.mesaNumero} · ${cuenta.codigo}`}
+      />
 
-        <View style={styles.itemsContainer}>
-          <Text style={styles.sectionTitle}>Detalle</Text>
-          {cuenta.items && cuenta.items.length > 0 ? (
-            cuenta.items.map((item: CuentaItem, index: number) => (
-              <View key={item.pedidoId || index} style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemCantidad}>{item.cantidad}x</Text>
-                  <Text style={styles.itemNombre}>{item.nombrePlato}</Text>
-                </View>
-                <Text style={styles.itemSubtotal}>{(item.subtotal || 0).toFixed(2)}€</Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No hay items en la cuenta</Text>
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Total Destacado */}
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Total a cobrar</Text>
+          <Text style={styles.totalAmount}>{total.toFixed(2)}€</Text>
+          {cuenta?.items && (
+            <Text style={styles.totalItems}>
+              {cuenta.items.reduce((sum, item) => sum + item.cantidad, 0)} artículos
+            </Text>
           )}
         </View>
 
-        <View style={styles.totalesContainer}>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>{(cuenta.subtotal || 0).toFixed(2)}€</Text>
-          </View>
-
-          {cuenta.descuentoPorcentaje > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>
-                Descuento ({cuenta.descuentoPorcentaje}%)
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.error }]}>
-                -{(cuenta.descuentoMonto || 0).toFixed(2)}€
+        {/* Dividir Cuenta */}
+        <CompactCard padding="sm" style={[styles.splitCard, showSplitModal && styles.splitCardActive]}>
+          <TouchableOpacity 
+            style={styles.splitHeader}
+            onPress={() => {
+              setShowSplitModal(!showSplitModal);
+              if (!showSplitModal) {
+                setPagosCompletados(0);
+                setNumPagos(2);
+              }
+            }}
+          >
+            <View style={styles.splitHeaderLeft}>
+              <Ionicons 
+                name={showSplitModal ? 'checkbox' : 'checkbox-outline'} 
+                size={20} 
+                color={showSplitModal ? colors.success : colors.primary} 
+              />
+              <Text style={[styles.splitTitle, showSplitModal && styles.splitTitleActive]}>
+                Dividir cuenta
               </Text>
             </View>
-          )}
-
-          {cuenta.impuestos?.monto > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>
-                IVA ({cuenta.impuestos.tasa}%)
+            {showSplitModal && (
+              <Text style={styles.splitSubtitle}>
+                {pagosCompletados}/{numPagos} pagos
               </Text>
-              <Text style={styles.totalValue}>
-                +{(cuenta.impuestos.monto || 0).toFixed(2)}€
-              </Text>
-            </View>
-          )}
-
-          <View style={[styles.totalRow, styles.totalFinal]}>
-            <Text style={styles.totalLabelFinal}>Total</Text>
-            <Text style={styles.totalValueFinal}>{total.toFixed(2)}€</Text>
-          </View>
-        </View>
-
-        <View style={styles.metodoContainer}>
-          <Text style={styles.sectionTitle}>Método de pago</Text>
-          <View style={styles.metodoRow}>
-            {METODOS_PAGO.map((metodo) => (
-              <TouchableOpacity
-                key={metodo.value}
-                style={[
-                  styles.metodoOption,
-                  metodoPago === metodo.value && styles.metodoOptionActive,
-                ]}
-                onPress={() => setMetodoPago(metodo.value)}
-              >
-                <Ionicons
-                  name={metodo.icon}
-                  size={24}
-                  color={metodoPago === metodo.value ? colors.surface : colors.primary}
-                />
-                <Text
-                  style={[
-                    styles.metodoLabel,
-                    metodoPago === metodo.value && styles.metodoLabelActive,
-                  ]}
+            )}
+          </TouchableOpacity>
+          
+          {showSplitModal && (
+            <View style={styles.splitContent}>
+              <View style={styles.splitControls}>
+                <TouchableOpacity 
+                  style={styles.splitButton}
+                  onPress={() => setNumPagos(Math.max(1, numPagos - 1))}
                 >
-                  {metodo.label}
+                  <Ionicons name="remove" size={16} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.splitNumber}>{numPagos}</Text>
+                <TouchableOpacity 
+                  style={styles.splitButton}
+                  onPress={() => setNumPagos(numPagos + 1)}
+                >
+                  <Ionicons name="add" size={16} color={colors.text} />
+              </TouchableOpacity>
+              <Text style={styles.splitLabel}>pagos</Text>
+            </View>
+            <Text style={styles.splitAmount}>
+              {montoPorPago.toFixed(2)}€/pago
+            </Text>
+          </View>
+        )}
+        </CompactCard>
+
+        {/* Método de Pago */}
+        <CompactCard padding="sm">
+          <PaymentMethodSelector 
+            selected={metodoPago}
+            onSelect={setMetodoPago}
+          />
+        </CompactCard>
+
+        {/* Efectivo */}
+        {metodoPago === 'EFECTIVO' && (
+          <CompactCard padding="sm">
+            <AmountInput
+              label="Monto recibido"
+              value={montoRecibido || ''}
+              onChange={setMontoRecibido}
+              showQuickAdd
+              quickAddValues={[5, 10, 20, 50]}
+            />
+            
+            <TouchableOpacity 
+              style={styles.exactButton}
+              onPress={handleMontoExacto}
+            >
+              <Text style={styles.exactButtonText}>
+                {showSplitModal 
+                  ? `Pago exacto (${montoPorPago.toFixed(2)}€)` 
+                  : `Pago exacto (${totalConPropina.toFixed(2)}€)`}
+              </Text>
+            </TouchableOpacity>
+
+            {cambio > 0 && (
+              <View style={styles.cambioContainer}>
+                <Text style={styles.cambioLabel}>Cambio a devolver</Text>
+                <Text style={styles.cambioValue}>{cambio.toFixed(2)}€</Text>
+              </View>
+            )}
+          </CompactCard>
+        )}
+
+        {/* Propina */}
+        <CompactCard padding="sm">
+          <Text style={styles.sectionTitle}>Propina</Text>
+          <View style={styles.propinaOptions}>
+            {PROPINA_OPCIONES.map((opcion) => (
+              <TouchableOpacity
+                key={opcion.label}
+                style={[
+                  styles.propinaChip,
+                  ((opcion.value === 0 && propinaPorcentaje === 0) || 
+                   (opcion.value > 0 && propinaPorcentaje === opcion.value)) && 
+                   styles.propinaChipActive,
+                  opcion.value === -1 && propinaPorcentaje === -1 && styles.propinaChipActive,
+                ]}
+                onPress={() => handlePropinaSelect(opcion)}
+              >
+                <Text style={[
+                  styles.propinaChipText,
+                  ((opcion.value === 0 && propinaPorcentaje === 0) || 
+                   (opcion.value > 0 && propinaPorcentaje === opcion.value)) && 
+                   styles.propinaChipTextActive,
+                  opcion.value === -1 && propinaPorcentaje === -1 && styles.propinaChipTextActive,
+                ]}>
+                  {opcion.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
-
-        {metodoPago === 'EFECTIVO' && (
-          <View style={styles.efectivoContainer}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Monto recibido</Text>
-              <View style={styles.inputRow}>
-                <Text style={styles.inputPrefix}>€</Text>
-                <TextInput
-                  style={styles.input}
-                  value={montoRecibido}
-                  onChangeText={setMontoRecibido}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                  placeholderTextColor={colors.textSecondary}
-                />
-              </View>
-            </View>
-
-            <View style={styles.sugeridasContainer}>
-              <Text style={styles.sugeridasLabel}>Sugeridas:</Text>
-              <View style={styles.sugeridasRow}>
-                {MONEDAS_SUGERIDAS.map((moneda) => (
-                  <TouchableOpacity
-                    key={moneda}
-                    style={styles.sugeridaButton}
-                    onPress={() => handleMonedaSugerida(moneda)}
-                  >
-                    <Text style={styles.sugeridaText}>+{moneda}€</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.cambioContainer}>
-              <Text style={styles.cambioLabel}>Cambio</Text>
-              <Text style={styles.cambioValue}>{cambio.toFixed(2)}€</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.propinaContainer}>
-          <Text style={styles.inputLabel}>Propina (opcional)</Text>
-          <View style={styles.inputRow}>
-            <Text style={styles.inputPrefix}>€</Text>
-            <TextInput
-              style={styles.input}
+          
+          {propinaPorcentaje === -1 && (
+            <AmountInput
+              label="Otra cantidad"
               value={propina}
-              onChangeText={setPropina}
-              keyboardType="decimal-pad"
+              onChange={setPropina}
               placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
             />
-          </View>
-        </View>
+          )}
+          
+          {cantidadPropina > 0 && (
+            <View style={styles.propinaResumen}>
+              <Text style={styles.propinaResumenText}>
+                Propina: {cantidadPropina.toFixed(2)}€
+              </Text>
+            </View>
+          )}
+        </CompactCard>
+
+        {/* Espacio para footer */}
+        <View style={styles.footerSpace} />
       </ScrollView>
 
+      {/* Footer */}
       <View style={styles.footer}>
-        <View style={styles.footerTotal}>
-          <Text style={styles.footerLabel}>Total a cobrar</Text>
-          <Text style={styles.footerTotalValue}>
-            {(total + montoPropina).toFixed(2)}€
-          </Text>
+        <View style={styles.footerRow}>
+          <View>
+            <Text style={styles.footerLabel}>
+              {showSplitModal 
+                ? `Pago ${pagosCompletados + 1} de ${numPagos}` 
+                : 'Total a cobrar'}
+            </Text>
+            <Text style={styles.footerTotal}>
+              {showSplitModal ? `${montoPorPago.toFixed(2)}€` : `${totalConPropina.toFixed(2)}€`}
+            </Text>
+          </View>
+          <Button
+            title={showSplitModal ? 'Cobrar' : 'Confirmar'}
+            onPress={handleCobrar}
+            loading={loadingAccion}
+            disabled={metodoPago === 'EFECTIVO' && monto < (showSplitModal ? montoPorPago : totalConPropina)}
+            variant="primary"
+            size="medium"
+          />
         </View>
-        <Button
-          title={`Confirmar Cobro ${metodoPago === 'EFECTIVO' ? `(${montoRecibido}€ recibido)` : ''}`}
-          onPress={handleCobrar}
-          loading={loadingAccion}
-          disabled={metodoPago === 'EFECTIVO' && monto < total}
-        />
       </View>
 
-      {/* Modal de Confirmación de Pago */}
+      {/* Modal de Confirmación */}
       <Modal
         visible={showConfirmModal}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setShowConfirmModal(false)}
       >
@@ -283,49 +405,32 @@ export const CobroScreen: React.FC = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Confirmar Pago</Text>
             
-            {metodoPago === 'TARJETA' && (
-              <>
-                <Text style={styles.modalText}>Importe a cobrar:</Text>
-                <Text style={styles.modalAmount}>{total.toFixed(2)}€</Text>
-                <Text style={styles.modalHint}>Se procesará el pago con tarjeta</Text>
-              </>
-            )}
+            <View style={styles.modalDetail}>
+              <Text style={styles.modalLabel}>Total:</Text>
+              <Text style={styles.modalAmount}>{totalConPropina.toFixed(2)}€</Text>
+            </View>
             
-            {metodoPago === 'EFECTIVO' && (
-              <>
-                <Text style={styles.modalText}>Cantidad recibida:</Text>
-                <Text style={styles.modalAmount}>{monto.toFixed(2)}€</Text>
-                <Text style={styles.modalText}>Cambio a devolver:</Text>
+            {metodoPago === 'EFECTIVO' && cambio > 0 && (
+              <View style={styles.modalDetail}>
+                <Text style={styles.modalLabel}>Cambio:</Text>
                 <Text style={[styles.modalAmount, styles.modalAmountHighlight]}>
                   {cambio.toFixed(2)}€
                 </Text>
-              </>
+              </View>
             )}
             
-            {metodoPago === 'MESA' && (
-              <>
-                <Text style={styles.modalText}>Importe pendiente:</Text>
-                <Text style={styles.modalAmount}>{total.toFixed(2)}€</Text>
-                <Text style={styles.modalHint}>El pago se registrará como "En mesa"</Text>
-              </>
-            )}
-
-            {montoPropina > 0 && (
-              <Text style={styles.modalPropina}>Propina: {montoPropina.toFixed(2)}€</Text>
-            )}
-
             <View style={styles.modalButtons}>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.modalButtonCancel]} 
+                style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setShowConfirmModal(false)}
               >
                 <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.modalButton, styles.modalButtonConfirm]} 
+                style={[styles.modalButton, styles.modalButtonConfirm]}
                 onPress={handleConfirmarPago}
               >
-                <Text style={styles.modalButtonTextConfirm}>Confirmar Pago</Text>
+                <Text style={styles.modalButtonTextConfirm}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -341,39 +446,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.md,
+    flex: 1,
   },
-  header: {
-    marginBottom: spacing.lg,
+  scrollContent: {
+    padding: spacing.sm,
+    gap: spacing.sm,
   },
-  title: {
-    ...typography.h1,
-    color: colors.text,
-  },
-  codigo: {
-    ...typography.h3,
-    color: colors.primary,
-  },
-  mesaInfo: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.text,
+  totalCard: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  itemsContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+  totalLabel: {
+    ...typography.body,
+    color: colors.surface,
+    opacity: 0.8,
+    marginBottom: spacing.xs,
+  },
+  totalAmount: {
+    ...typography.h1,
+    color: colors.surface,
+    fontWeight: '700',
+    fontSize: 42,
+  },
+  totalItems: {
+    ...typography.caption,
+    color: colors.surface,
+    opacity: 0.7,
+    marginTop: spacing.xs,
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.xs,
+    paddingVertical: 3,
   },
   itemInfo: {
     flexDirection: 'row',
@@ -381,189 +489,187 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemCantidad: {
-    ...typography.body,
+    ...typography.bodySmall,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginRight: spacing.sm,
-    minWidth: 30,
+    marginRight: spacing.xs,
+    minWidth: 28,
   },
   itemNombre: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     flex: 1,
   },
   itemSubtotal: {
-    ...typography.body,
+    ...typography.bodySmall,
+    fontWeight: '600',
     color: colors.text,
   },
-  totalesContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  totalLabel: {
-    ...typography.body,
+  emptyText: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
   },
-  totalValue: {
-    ...typography.body,
-    color: colors.text,
+  splitCard: {
+    backgroundColor: colors.primary + '08',
   },
-  totalFinal: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-  },
-  totalLabelFinal: {
-    ...typography.h3,
-    color: colors.text,
-  },
-  totalValueFinal: {
-    ...typography.h2,
-    color: colors.success,
-  },
-  metodoContainer: {
-    marginBottom: spacing.lg,
-  },
-  metodoRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  metodoOption: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
+  splitCardActive: {
+    backgroundColor: colors.success + '10',
+    borderColor: colors.success,
     borderWidth: 1,
-    borderColor: colors.border,
+  },
+  splitHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  splitHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
-  metodoOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  metodoLabel: {
+  splitTitle: {
     ...typography.bodySmall,
     fontWeight: '600',
     color: colors.primary,
   },
-  metodoLabelActive: {
-    color: colors.surface,
+  splitTitleActive: {
+    color: colors.success,
   },
-  efectivoContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+  splitSubtitle: {
+    ...typography.caption,
+    color: colors.success,
+    fontWeight: '600',
   },
-  inputContainer: {
-    marginBottom: spacing.md,
+  splitContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  inputLabel: {
-    ...typography.bodySmall,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  inputRow: {
+  splitControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
   },
-  inputPrefix: {
-    ...typography.h3,
-    color: colors.textSecondary,
-    marginRight: spacing.xs,
+  splitButton: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    fontSize: 24,
-    fontWeight: '600',
+  splitNumber: {
+    ...typography.body,
+    fontWeight: '700',
     color: colors.text,
+    minWidth: 24,
+    textAlign: 'center',
   },
-  sugeridasContainer: {
-    marginBottom: spacing.md,
-  },
-  sugeridasLabel: {
+  splitLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
   },
-  sugeridasRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  sugeridaButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.successLight,
-    borderRadius: borderRadius.full,
-  },
-  sugeridaText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+  splitAmount: {
+    ...typography.h3,
+    fontWeight: '700',
     color: colors.success,
+  },
+  exactButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primary + '10',
+    borderRadius: borderRadius.full,
+    marginTop: spacing.xs,
+  },
+  exactButtonText: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '600',
   },
   cambioContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   cambioLabel: {
-    ...typography.h3,
+    ...typography.body,
     color: colors.text,
   },
   cambioValue: {
     ...typography.h2,
     color: colors.success,
+    fontWeight: '700',
   },
-  propinaContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+  propinaOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
-  footer: {
-    backgroundColor: colors.surface,
-    padding: spacing.md,
+  propinaChip: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  propinaChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  propinaChipText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  propinaChipTextActive: {
+    color: colors.surface,
+  },
+  propinaResumen: {
+    marginTop: spacing.xs,
+    paddingTop: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  footerTotal: {
+  propinaResumenText: {
+    ...typography.bodySmall,
+    color: colors.accent,
+    fontWeight: '600',
+  },
+  footerSpace: {
+    height: 80,
+  },
+  footer: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    padding: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
   },
   footerLabel: {
-    ...typography.h3,
-    color: colors.text,
-  },
-  footerTotalValue: {
-    ...typography.h1,
-    color: colors.success,
-  },
-  emptyText: {
-    ...typography.body,
+    ...typography.caption,
     color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
+  },
+  footerTotal: {
+    ...typography.h2,
+    fontWeight: '700',
+    color: colors.text,
   },
   modalOverlay: {
     flex: 1,
@@ -574,48 +680,42 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    width: '80%',
-    maxWidth: 400,
-    alignItems: 'center',
+    padding: spacing.lg,
+    width: '85%',
+    maxWidth: 320,
   },
   modalTitle: {
     ...typography.h2,
     color: colors.text,
     marginBottom: spacing.md,
+    textAlign: 'center',
   },
-  modalText: {
+  modalDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  modalLabel: {
     ...typography.body,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
   },
   modalAmount: {
-    ...typography.h1,
-    color: colors.primary,
-    marginBottom: spacing.md,
+    ...typography.h2,
+    color: colors.text,
+    fontWeight: '700',
   },
   modalAmountHighlight: {
     color: colors.success,
   },
-  modalHint: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: spacing.md,
-  },
-  modalPropina: {
-    ...typography.body,
-    color: colors.accent,
-    marginBottom: spacing.md,
-  },
   modalButtons: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
   modalButton: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     alignItems: 'center',
   },
@@ -628,12 +728,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   modalButtonTextCancel: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.text,
     fontWeight: '600',
   },
   modalButtonTextConfirm: {
-    ...typography.body,
+    ...typography.bodySmall,
     color: colors.surface,
     fontWeight: '600',
   },

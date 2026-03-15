@@ -9,6 +9,7 @@ import {
   Animated,
   StatusBar,
   Vibration,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +83,10 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
     type: 'info',
     buttons: [{ text: 'OK' }],
   });
+
+  // Estado para edición de notas temporales
+  const [notaEditando, setNotaEditando] = useState<{id: string; nota: string} | null>(null);
+  const [inputNota, setInputNota] = useState('');
    
   const { guardar, cargar, limpiar } = useRondaPersistencia();
   const { crearYEnviarACocina, crearNuevaRonda } = useSalaStore();
@@ -467,6 +472,37 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
     onClose();
   }, [platos, comandaId, guardar, onClose]);
 
+
+
+  // Función para añadir/editar nota temporal
+  const handleAgregarNota = useCallback((platoId: string, nota: string) => {
+    setPlatos((prev) =>
+      prev.map((p) =>
+        p.id === platoId ? { ...p, notas: nota } : p
+      )
+    );
+    // Guardar inmediatamente para persistir la nota
+    const platosActualizados = platos.map((p) =>
+      p.id === platoId ? { ...p, notas: nota } : p
+    );
+    guardar(comandaId, platosActualizados);
+  }, [platos, comandaId, guardar]);
+
+  // Mostrar input de nota
+  const mostrarInputNota = useCallback((item: PlatoRondaItem) => {
+    setNotaEditando({ id: item.id, nota: item.notas || '' });
+    setInputNota(item.notas || '');
+  }, []);
+
+  // Guardar nota desde el input
+  const guardarNota = useCallback(() => {
+    if (notaEditando) {
+      handleAgregarNota(notaEditando.id, inputNota);
+      setNotaEditando(null);
+      setInputNota('');
+    }
+  }, [notaEditando, inputNota, handleAgregarNota]);
+
   // Función para mostrar alertas personalizadas
   const renderPlato = ({ item }: { item: PlatoRondaItem }) => {
     const isSeleccionado = seleccionados.includes(item.id);
@@ -478,6 +514,8 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
       <TouchableOpacity 
         style={[styles.platoItem, isSeleccionado && styles.platoItemSeleccionado]}
         onPress={() => handleToggleSeleccion(item.id)}
+        onLongPress={() => mostrarInputNota(item)}
+        delayLongPress={600}
         activeOpacity={0.7}
       >
         <View style={styles.checkbox} pointerEvents="none">
@@ -494,6 +532,9 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
           </Text>
           {tipoLabel && (
             <Text style={styles.platoTipo}>{tipoLabel}</Text>
+          )}
+          {item.notas && (
+            <Text style={styles.platoNota}>📝 {item.notas}</Text>
           )}
         </View>
 
@@ -631,6 +672,48 @@ export const ModalRondaActual: React.FC<ModalRondaActualProps> = ({
 
         {/* Botón toggle añadir/volver platos con animación */}
         <BotonAnadirPlatos />
+
+        {/* Modal para editar nota */}
+        {notaEditando && (
+          <View style={styles.notaModalOverlay}>
+            <View style={styles.notaModal}>
+              <Text style={styles.notaModalTitle}>Añadir nota al plato</Text>
+              <Text style={styles.notaModalSubtitle}>Esta nota aparecerá en el ticket de cocina</Text>
+              
+              <TextInput
+                style={styles.notaInput}
+                value={inputNota}
+                onChangeText={setInputNota}
+                placeholder="Ej: Sin cebolla, poco hecho..."
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                maxLength={100}
+                autoFocus
+              />
+              
+              <Text style={styles.notaContador}>{inputNota.length}/100</Text>
+              
+              <View style={styles.notaModalBotones}>
+                <TouchableOpacity
+                  style={[styles.notaBoton, styles.notaBotonCancelar]}
+                  onPress={() => {
+                    setNotaEditando(null);
+                    setInputNota('');
+                  }}
+                >
+                  <Text style={styles.notaBotonTextoCancelar}>Cancelar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.notaBoton, styles.notaBotonGuardar]}
+                  onPress={guardarNota}
+                >
+                  <Text style={styles.notaBotonTextoGuardar}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Alerta personalizada */}
         <CustomAlert
@@ -917,5 +1000,94 @@ const styles = StyleSheet.create({
   selectorContainer: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  platoNota: {
+    ...typography.caption,
+    color: colors.warning,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  // Estilos para modal de notas
+  notaModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  notaModal: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  notaModalTitle: {
+    ...typography.h3,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  notaModalSubtitle: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  notaInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.background,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  notaContador: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'right',
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  notaModalBotones: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  notaBoton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+  },
+  notaBotonCancelar: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  notaBotonGuardar: {
+    backgroundColor: colors.accent,
+  },
+  notaBotonTextoCancelar: {
+    ...typography.body,
+    color: colors.text,
+    fontWeight: '600',
+  },
+  notaBotonTextoGuardar: {
+    ...typography.body,
+    color: colors.surface,
+    fontWeight: '600',
   },
 });

@@ -62,12 +62,12 @@ interface SalaState {
   crearComanda: (data: CrearComandaRequest) => Promise<Comanda>;
   agregarPedido: (comandaId: string, data: AgregarPedidoRequest) => Promise<Pedido[]>;
   cambiarEstadoPedido: (pedidoId: string, estado: string) => Promise<void>;
-  cerrarComanda: (comandaId: string) => Promise<TicketResponse>;
+  cerrarComanda: (comandaId: string, impresora?: string) => Promise<TicketResponse>;
   cobrarComanda: (comandaId: string, data: CobrarRequest) => Promise<CobroResponse>;
   cancelarComanda: (comandaId: string, motivo: string) => Promise<void>;
 
   // Nuevos métodos para gestión de cuenta cerrada
-  reenviarTicket: (comandaId: string) => Promise<void>;
+  reenviarTicket: (comandaId: string, impresora: string) => Promise<void>;
   modificarLineasCuenta: (comandaId: string, itemIds: string[], motivo: string) => Promise<TicketResponse>;
   cancelarCuentaCerrada: (comandaId: string, motivo: string, usuarioNombre: string) => Promise<TicketResponse>;
   fetchComandasHoy: () => Promise<void>;
@@ -348,10 +348,10 @@ export const useSalaStore = create<SalaState>((set, get) => ({
     }
   },
 
-  cerrarComanda: async (comandaId) => {
+  cerrarComanda: async (comandaId, impresora) => {
     set({ loadingAccion: true, errorAccion: null });
     try {
-      const ticket = await salaService.cerrarComanda(comandaId);
+      const ticket = await salaService.cerrarComanda(comandaId, impresora);
       await get().fetchComanda(comandaId);
       await get().fetchComandaConRondas(comandaId);
       set({ loadingAccion: false });
@@ -365,10 +365,10 @@ export const useSalaStore = create<SalaState>((set, get) => ({
     }
   },
 
-  reenviarTicket: async (comandaId) => {
+  reenviarTicket: async (comandaId, impresora) => {
     set({ loadingAccion: true, errorAccion: null });
     try {
-      await salaService.reenviarTicket(comandaId);
+      await salaService.reenviarTicket(comandaId, impresora);
       set({ loadingAccion: false });
     } catch (error: any) {
       set({

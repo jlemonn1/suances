@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # ==================== POSTGRESQL - 4 BASES DE DATOS ====================
+  postgres-carta:
+    image: postgres:16
+    container_name: suances-postgres-carta
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CARTA_DB:-carta}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-carta-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    networks:
+      - suances-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${CARTA_DB:-carta}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-personal:
+    image: postgres:16
+    container_name: suances-postgres-personal
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PERSONAL_DB:-personal}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-personal-data:/var/lib/postgresql/data
+    networks:
+      - suances-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${PERSONAL_DB:-personal}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-reservas:
+    image: postgres:16
+    container_name: suances-postgres-reservas
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${RESERVAS_DB:-reservas}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-reservas-data:/var/lib/postgresql/data
+    networks:
+      - suances-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${RESERVAS_DB:-reservas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres-sala:
+    image: postgres:16
+    container_name: suances-postgres-sala
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${SALA_DB:-sala}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-sala-data:/var/lib/postgresql/data
+    networks:
+      - suances-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${SALA_DB:-sala}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==================== REDIS - STREAMS COMPARTIDO ====================
+  redis:
+    image: redis:7
+    container_name: suances-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - suances-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  suances-network:
+    external: true
+    name: suances-network
+
+volumes:
+  postgres-carta-data:
+  postgres-personal-data:
+  postgres-reservas-data:
+  postgres-sala-data:
+  redis-data:

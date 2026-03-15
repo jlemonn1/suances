@@ -1,0 +1,22 @@
+[redis]
+redis-host=localhost
+redis-port=6379
+
+# Channels to subscribe (comma-separated)
+# Esta PC está configurada como: Barra Isabella
+channels=print/ticket-isabella,print/barra
+
+[printer]
+# Printer name as configured in Windows
+printer-name=POSIFLEX PP-6900
+
+# Printer type: windows, usb, serial
+printer-type=windows
+
+# USB settings (only for usb type)
+vendor-id=0x0d3a
+product-id=0x0369
+
+# Serial settings (only for serial type)
+serial-port=COM1
+serial-baud=9600

@@ -52,7 +52,7 @@ public class ComandaController {
     }
 
     @GetMapping("/hoy")
-    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     public ResponseEntity<List<ComandaHoyResponse>> listarComandasHoy() {
         List<ComandaHoyResponse> comandas = comandaService.listarComandasHoy();
         return ResponseEntity.ok(comandas);
