@@ -25,13 +25,13 @@ export function Hero({ onReservarClick }: HeroProps) {
       <div className="hero__background" ref={imageRef}>
         <img 
           src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80" 
-          alt="Restaurante Suances"
+          alt="Restaurante Isabella"
         />
       </div>
       <div className="hero__overlay"></div>
       <div className="hero__content">
         <h1 className="hero__title animate-slide-up">
-          Restaurante Suances
+          Restaurante Isabella
         </h1>
         <p className="hero__subtitle animate-fade-in">
           Donde la tradición culinaria meets la innovación

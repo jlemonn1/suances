@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import './Header.css';
 
 interface HeaderProps {
@@ -25,12 +26,13 @@ export function Header({ onReservarClick }: HeaderProps) {
     <header className={`header ${scrolled ? 'header--scrolled' : ''}`}>
       <div className="header__container">
         <div className="header__logo">
-          <span className="header__logo-text">Suances</span>
+          <span className="header__logo-text">Isabella</span>
         </div>
         <nav className="header__nav">
-          <a href="#inicio" className="header__link">Inicio</a>
+          <Link to="/" className="header__link">Inicio</Link>
           <a href="#info" className="header__link">Info</a>
           <a href="#galeria" className="header__link">Galería</a>
+          <Link to="/menu" className="header__link">Carta</Link>
           <a href="#contacto" className="header__link">Contacto</a>
         </nav>
         <div className="header__actions">

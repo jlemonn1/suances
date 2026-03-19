@@ -43,7 +43,7 @@ export function InfoSection() {
             </div>
             <h3 className="info-section__title">Email</h3>
             <p className="info-section__text">
-              info@suances.com<br />
+              info@isabella.com<br />
               Respondemos en 24h
             </p>
           </div>
@@ -54,7 +54,7 @@ export function InfoSection() {
             Tradición y pasión en cada plato
           </p>
           <p className="info-section__description">
-            En Restaurante Suances combinamos los sabores auténticos de la cocina tradicional 
+            En Restaurante Isabella combinamos los sabores auténticos de la cocina tradicional 
             con técnicas modernas de presentación. Nuestro compromiso es ofrecer una experiencia 
             gastronómica única, utilizando siempre productos frescos de temporada seleccionados 
             por nuestros proveedores de confianza.

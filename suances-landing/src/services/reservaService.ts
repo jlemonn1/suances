@@ -5,7 +5,7 @@ import type {
   ReservaResponse,
 } from '../types';
 
-const API_BASE = 'http://localhost:8087/api/reservas';
+const API_BASE = 'http://localhost/api/reservas';
 
 export const reservaService = {
   async getFranjas(): Promise<FranjaResponse[]> {

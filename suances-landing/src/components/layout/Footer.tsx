@@ -6,7 +6,7 @@ export function Footer() {
       <div className="footer__container">
         <div className="footer__grid">
           <div className="footer__section">
-            <h3 className="footer__title">Suances</h3>
+            <h3 className="footer__title">Isabella</h3>
             <p className="footer__text">
               Restaurante de cocina tradicional con un toque moderno. 
               Disfruta de la mejor gastronomía en un ambiente único.
@@ -26,7 +26,7 @@ export function Footer() {
               <li>Calle Principal, 123</li>
               <li>Madrid, España</li>
               <li>+34 900 123 456</li>
-              <li>info@suances.com</li>
+              <li>info@isabella.com</li>
             </ul>
           </div>
           <div className="footer__section">
@@ -39,7 +39,7 @@ export function Footer() {
           </div>
         </div>
         <div className="footer__bottom">
-          <p>&copy; {new Date().getFullYear()} Restaurante Suances. Todos los derechos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} Restaurante Isabella. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>
