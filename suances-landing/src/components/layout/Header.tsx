@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import './Header.css';
@@ -22,17 +22,21 @@ export function Header({ onReservarClick }: HeaderProps) {
     window.open('https://wa.me/34653593891', '_blank');
   };
 
+  const headerClass = scrolled ? 'header header--scrolled' : 'header';
+
   return (
-    <header className={`header ${scrolled ? 'header--scrolled' : ''}`}>
+    <header className={headerClass}>
       <div className="header__container">
-        <div className="header__logo">
-          <span className="header__logo-text">Isabella</span>
-        </div>
-        <nav className="header__nav">
+<Link to="/" className="header__logo">
+          <img src="/images/rojo.PNG" alt="Isabella" className="header__logo-img header__logo-img--default" />
+          <img src="/images/negro.PNG" alt="Isabella" className="header__logo-img header__logo-img--scrolled" />
+        </Link>
+<nav className="header__nav">
           <Link to="/" className="header__link">Inicio</Link>
           <a href="#info" className="header__link">Info</a>
-          <a href="#galeria" className="header__link">Galería</a>
-          <Link to="/menu" className="header__link">Carta</Link>
+          <a href="#el-faro" className="header__link">El Faro</a>
+          <a href="#galeria" className="header__link">Galeria</a>
+          <Link to="/carta" className="header__link">Carta</Link>
           <a href="#contacto" className="header__link">Contacto</a>
         </nav>
         <div className="header__actions">

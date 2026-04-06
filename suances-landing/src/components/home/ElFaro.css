@@ -1,0 +1,159 @@
+.elfaro {
+  padding: 100px 0;
+  background-color: var(--color-white);
+}
+
+.elfaro__subtitle {
+  font-style: italic;
+  margin-bottom: 64px;
+}
+
+.elfaro__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.elfaro__card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  opacity: 0;
+  transform: translateY(40px);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.elfaro__card:nth-child(even) {
+  direction: rtl;
+}
+
+.elfaro__card:nth-child(even) > * {
+  direction: ltr;
+}
+
+.elfaro__card--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.elfaro__card-image {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.elfaro__card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+
+.elfaro__card:hover .elfaro__card-image img {
+  transform: scale(1.05);
+}
+
+.elfaro__card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(201, 169, 98, 0.1) 0%,
+    rgba(139, 115, 85, 0.1) 100%
+  );
+  pointer-events: none;
+}
+
+.elfaro__card-content {
+  padding: 24px 0;
+}
+
+.elfaro__card-title {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 20px;
+  position: relative;
+  display: inline-block;
+}
+
+.elfaro__card-title::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 60px;
+  height: 3px;
+  background-color: var(--color-secondary);
+  border-radius: 2px;
+}
+
+.elfaro__card-text {
+  font-size: 17px;
+  line-height: 1.8;
+  color: var(--color-text-light);
+}
+
+@media (max-width: 768px) {
+  .elfaro {
+    padding: 60px 0;
+  }
+
+  .elfaro__subtitle {
+    margin-bottom: 40px;
+  }
+
+  .elfaro__grid {
+    gap: 32px;
+  }
+
+  .elfaro__card {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    transform: translateY(30px);
+  }
+
+  .elfaro__card:nth-child(even) {
+    direction: ltr;
+  }
+
+  .elfaro__card-content {
+    padding: 0;
+  }
+
+  .elfaro__card-title {
+    font-size: 24px;
+  }
+
+  .elfaro__card-text {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .elfaro {
+    padding: 50px 0;
+  }
+
+  .elfaro__subtitle {
+    margin-bottom: 32px;
+  }
+
+  .elfaro__grid {
+    gap: 24px;
+  }
+
+  .elfaro__card-title {
+    font-size: 22px;
+  }
+
+  .elfaro__card-text {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+}

@@ -192,10 +192,32 @@ img {
 
   .section-title {
     font-size: 32px;
+    margin-bottom: 12px;
+  }
+
+  .section-subtitle {
+    font-size: 15px;
+    margin-bottom: 36px;
   }
 
   .container {
     padding: 0 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: 50px 0;
+  }
+
+  .section-title {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .section-subtitle {
+    font-size: 14px;
+    margin-bottom: 32px;
   }
 }
 
@@ -503,4 +525,43 @@ img {
   color: var(--color-secondary);
   margin-left: 20px;
   white-space: nowrap;
+}
+
+/* Carta Page Styles */
+.carta-page {
+  padding: 120px 24px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: calc(100vh - 200px);
+}
+
+.carta-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.carta-header h1 {
+  font-size: 48px;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+}
+
+.carta-subtitle {
+  font-size: 16px;
+  color: var(--color-text-light);
+  font-weight: 300;
+}
+
+@media (max-width: 768px) {
+  .carta-page {
+    padding: 100px 16px 60px;
+  }
+
+  .carta-header h1 {
+    font-size: 36px;
+  }
+
+  .carta-subtitle {
+    font-size: 14px;
+  }
 }

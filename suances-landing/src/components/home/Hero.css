@@ -103,12 +103,17 @@
 }
 
 @media (max-width: 768px) {
+  .hero {
+    min-height: 500px;
+  }
+
   .hero__title {
     font-size: 42px;
   }
 
   .hero__subtitle {
     font-size: 16px;
+    padding: 0 16px;
   }
 
   .hero__actions {
@@ -118,5 +123,30 @@
   .hero__actions .btn {
     width: 100%;
     max-width: 280px;
+  }
+
+  .hero__scroll {
+    bottom: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    min-height: 450px;
+  }
+
+  .hero__title {
+    font-size: 36px;
+  }
+
+  .hero__subtitle {
+    font-size: 15px;
+    margin-bottom: 32px;
+  }
+
+  .hero__actions .btn {
+    max-width: 260px;
+    padding: 12px 24px;
+    font-size: 13px;
   }
 }

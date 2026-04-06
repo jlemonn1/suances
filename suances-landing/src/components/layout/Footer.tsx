@@ -15,26 +15,25 @@ export function Footer() {
           <div className="footer__section">
             <h4 className="footer__subtitle">Horario</h4>
             <ul className="footer__list">
-              <li>Lunes - Jueves: 13:00 - 23:00</li>
-              <li>Viernes - Sábado: 13:00 - 00:00</li>
-              <li>Domingo: 13:00 - 22:00</li>
+              <li>Faro: Jueves a Domingo</li>
+              <li>Isabella: Miércoles a Lunes</li>
+              <li>12:00 - 00:00</li>
             </ul>
           </div>
           <div className="footer__section">
             <h4 className="footer__subtitle">Contacto</h4>
             <ul className="footer__list">
-              <li>Calle Principal, 123</li>
-              <li>Madrid, España</li>
-              <li>+34 900 123 456</li>
-              <li>info@isabella.com</li>
+              <li>Travesia del muelle 17</li>
+              <li>Suances, Cantabria</li>
+              <li><a href="tel:+34942810275" style={{ color: 'inherit', textDecoration: 'none' }}>942 81 02 75</a></li>
+              <li><a href="mailto:trattoriaisabella.arg@gmail.com" style={{ color: 'inherit', textDecoration: 'none' }}>trattoriaisabella.arg@gmail.com</a></li>
             </ul>
           </div>
           <div className="footer__section">
             <h4 className="footer__subtitle">Síguenos</h4>
             <div className="footer__social">
-              <a href="#" className="footer__social-link">Instagram</a>
-              <a href="#" className="footer__social-link">Facebook</a>
-              <a href="#" className="footer__social-link">Twitter</a>
+              <a href="https://www.instagram.com/isabella.trattoria/" target="_blank" rel="noopener noreferrer" className="footer__social-link">Instagram</a>
+              <a href="https://www.tiktok.com/@isabella.trattoria" target="_blank" rel="noopener noreferrer" className="footer__social-link">TikTok</a>
             </div>
           </div>
         </div>

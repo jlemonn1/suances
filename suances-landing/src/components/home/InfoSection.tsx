@@ -12,8 +12,8 @@ export function InfoSection() {
             </div>
             <h3 className="info-section__title">Dirección</h3>
             <p className="info-section__text">
-              Calle Principal, 123<br />
-              Madrid, España
+              Travesia del muelle 17<br />
+              Suances, Cantabria
             </p>
           </div>
           <div className="info-section__card">
@@ -22,9 +22,8 @@ export function InfoSection() {
             </div>
             <h3 className="info-section__title">Horario</h3>
             <p className="info-section__text">
-              Lun-Jue: 13:00 - 23:00<br />
-              Vie-Sáb: 13:00 - 00:00<br />
-              Dom: 13:00 - 22:00
+              Miércoles a Lunes<br />
+              12:30 - 23:30
             </p>
           </div>
           <div className="info-section__card">
@@ -33,8 +32,7 @@ export function InfoSection() {
             </div>
             <h3 className="info-section__title">Teléfono</h3>
             <p className="info-section__text">
-              +34 900 123 456<br />
-              Disponible siempre
+              <a href="tel:+34942810275" className="info-section__link">942 81 02 75</a>
             </p>
           </div>
           <div className="info-section__card">
@@ -43,8 +41,7 @@ export function InfoSection() {
             </div>
             <h3 className="info-section__title">Email</h3>
             <p className="info-section__text">
-              info@isabella.com<br />
-              Respondemos en 24h
+              <a href="mailto:trattoriaisabella.arg@gmail.com" className="info-section__link">trattoriaisabella.arg@gmail.com</a>
             </p>
           </div>
         </div>
@@ -54,10 +51,10 @@ export function InfoSection() {
             Tradición y pasión en cada plato
           </p>
           <p className="info-section__description">
-            En Restaurante Isabella combinamos los sabores auténticos de la cocina tradicional 
+            En Isabella Trattoria Argentina combinamos los sabores auténticos de la cocina tradicional 
             con técnicas modernas de presentación. Nuestro compromiso es ofrecer una experiencia 
-            gastronómica única, utilizando siempre productos frescos de temporada seleccionados 
-            por nuestros proveedores de confianza.
+            gastronómica única, utilizando siempre productos frescos de temporada.
+            Carne seleccionada, pasta artesanal y vinos únicos
           </p>
         </div>
       </div>

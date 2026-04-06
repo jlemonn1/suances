@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import './Hero.css';
 
 interface HeroProps {
@@ -24,22 +25,26 @@ export function Hero({ onReservarClick }: HeroProps) {
     <section id="inicio" className="hero" ref={heroRef}>
       <div className="hero__background" ref={imageRef}>
         <img 
-          src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80" 
-          alt="Restaurante Isabella"
+          src="/images/IMG_2997.png" 
+          alt="Isabella Trattoria Argentina"
         />
       </div>
       <div className="hero__overlay"></div>
       <div className="hero__content">
         <h1 className="hero__title animate-slide-up">
-          Restaurante Isabella
+          Isabella Trattoria Argentina
         </h1>
         <p className="hero__subtitle animate-fade-in">
-          Donde la tradición culinaria meets la innovación
+          Tradición italiana con esencia argentina.
+          Trattoria de autor
         </p>
         <div className="hero__actions animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <button className="btn btn-primary" onClick={onReservarClick}>
             Reservar Mesa
           </button>
+          <Link to="/carta" className="btn btn-outline">
+            Ver Carta
+          </Link>
           <a href="#info" className="btn btn-outline">
             Conócenos
           </a>

@@ -3,6 +3,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { Hero } from '../components/home/Hero';
 import { InfoSection } from '../components/home/InfoSection';
+import { ElFaro } from '../components/home/ElFaro';
 import { Gallery } from '../components/home/Gallery';
 import { ContactSection } from '../components/home/ContactSection';
 import { ReservaModal } from '../components/reserva/ReservaModal';
@@ -16,6 +17,7 @@ export function Home() {
       <main>
         <Hero onReservarClick={() => setReservaOpen(true)} />
         <InfoSection />
+        <ElFaro />
         <Gallery />
         <ContactSection />
       </main>

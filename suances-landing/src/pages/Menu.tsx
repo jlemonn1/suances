@@ -28,7 +28,7 @@ export function Menu() {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await fetch('http://46.224.216.234/api/carta/api/menu');
+        const response = await fetch('http://172.20.10.7/api/carta/api/menu');
         if (!response.ok) {
           throw new Error('Error al cargar el menú');
         }
